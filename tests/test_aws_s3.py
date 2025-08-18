@@ -2,333 +2,370 @@
 
 from aws_config.s3 import (
     S3Parameter,
-    deploy_config,
-    read_config,
-    delete_config,
+    read_text,
 )
 
 import pytest
 from s3pathlib import S3Path
 from aws_config.tests.mock_aws import BaseMockAwsTest
-from aws_config.exc import S3BucketVersionSuspendedError, S3ObjectNotExist
+from aws_config.exc import S3ObjectNotExist
 
 
 class TestS3Parameter(BaseMockAwsTest):
     use_mock = True
     test_bucket = "s3-test-bucket"
-    test_versioned_bucket = "s3-test-versioned-bucket"
 
     @classmethod
     def setup_class_post_hook(cls):
+        # Create bucket without versioning (versioning disabled)
         cls.create_s3_bucket(bucket_name=cls.test_bucket)
-        cls.create_s3_bucket(
-            bucket_name=cls.test_versioned_bucket,
-            enable_versioning=True,
-        )
         cls.s3bucket_test_bucket = S3Path(f"s3://{cls.test_bucket}")
-        cls.s3bucket_test_versioned_bucket = S3Path(f"s3://{cls.test_versioned_bucket}")
 
-    def _test(
-        self,
-        versioned: bool,
-    ):
-        if versioned:
-            s3dir_root = self.s3bucket_test_versioned_bucket
-        else:
-            s3dir_root = self.s3bucket_test_bucket
+    def test_read_text_function(self):
+        """Test the read_text helper function"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-read-text-func")
+        parameter_name = "test-read-text"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Test reading non-existent file - use a different path
+        s3path_nonexistent = s3_param.get_s3path(999)  # Use a version that doesn't exist
+        with pytest.raises(S3ObjectNotExist):
+            read_text(s3path=s3path_nonexistent, bsm=self.bsm)
+        
+        # Write content and test reading
+        test_content = '{"test": "data"}'
+        s3path = s3_param.get_s3path(None)
+        s3path.write_text(test_content, bsm=self.bsm)
+        
+        result = read_text(s3path=s3path, bsm=self.bsm)
+        assert result == test_content
 
+    def test_s3_parameter_basic_operations(self):
+        """Test basic S3Parameter operations with non-versioned bucket"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-basic-ops")
         parameter_name = "myapp"
-        s3dir_config = s3dir_root.joinpath("config")
-        tags = {"creator": "Alice"}
         
-        # Test S3Parameter creation and initial state
-        s3_param = S3Parameter.new(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
+        # Create S3Parameter instance
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
             parameter_name=parameter_name,
         )
         
-        # Test version status methods
-        assert s3_param.version_status.is_enabled() == versioned
-        assert s3_param.version_status.is_not_enabled() == (not versioned)
-        assert s3_param.version_status.is_suspended() == False
+        # Test s3dir_param property
+        expected_param_dir = s3dir_config.joinpath(parameter_name).to_dir()
+        assert s3_param.s3dir_param.uri == expected_param_dir.uri
         
-        # Test reading from empty bucket
-        with pytest.raises(S3ObjectNotExist):
-            _ = s3_param.read_latest(bsm=self.bsm)
+        # Test get_s3path method for latest
+        s3path_latest = s3_param.get_s3path(None)
+        expected_latest = s3_param.s3dir_param.joinpath(f"{parameter_name}-000000-LATEST.json")
+        assert s3path_latest.uri == expected_latest.uri
+        
+        # Test get_s3path method for specific version
+        s3path_v1 = s3_param.get_s3path(1)
+        expected_v1 = s3_param.s3dir_param.joinpath(f"{parameter_name}-999999-1.json")
+        assert s3path_v1.uri == expected_v1.uri
+        
+        # Test get_s3path method for version 2 (should have different pattern)
+        s3path_v2 = s3_param.get_s3path(2)
+        expected_v2 = s3_param.s3dir_param.joinpath(f"{parameter_name}-999998-2.json")
+        assert s3path_v2.uri == expected_v2.uri
 
+    def test_s3_parameter_write_and_read(self):
+        """Test writing and reading configuration data"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-write-read")
+        parameter_name = "myapp-wr"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Test reading from empty location
         with pytest.raises(S3ObjectNotExist):
-            _ = read_config(
+            s3_param.read(bsm=self.bsm, version=None)
+        
+        with pytest.raises(S3ObjectNotExist):
+            s3_param.read(bsm=self.bsm, version=1)
+        
+        # Write first version
+        config_data_1 = '{"version": 1, "data": "test"}'
+        s3path_result = s3_param.write(
+            bsm=self.bsm,
+            value=config_data_1,
+            version=1,
+        )
+        assert s3path_result is not None
+        assert s3path_result.bucket == self.test_bucket
+        assert "999999-1.json" in s3path_result.key
+        
+        # Read back the versioned data
+        result = s3_param.read(bsm=self.bsm, version=1)
+        assert result == config_data_1
+        
+        # Write latest pointer
+        s3path_latest = s3_param.write(
+            bsm=self.bsm,
+            value=config_data_1,
+            version=None,
+        )
+        assert s3path_latest is not None
+        assert "000000-LATEST.json" in s3path_latest.key
+        
+        # Read latest
+        result_latest = s3_param.read(bsm=self.bsm, version=None)
+        assert result_latest == config_data_1
+        
+        # Write second version
+        config_data_2 = '{"version": 2, "data": "updated"}'
+        s3_param.write(
+            bsm=self.bsm,
+            value=config_data_2,
+            version=2,
+        )
+        
+        # Update latest pointer
+        s3_param.write(
+            bsm=self.bsm,
+            value=config_data_2,
+            version=None,
+        )
+        
+        # Read specific versions
+        result_v1 = s3_param.read(bsm=self.bsm, version=1)
+        assert result_v1 == config_data_1
+        
+        result_v2 = s3_param.read(bsm=self.bsm, version=2)
+        assert result_v2 == config_data_2
+        
+        # Read latest (should be version 2)
+        result_latest = s3_param.read(bsm=self.bsm, version=None)
+        assert result_latest == config_data_2
+
+    def test_s3_parameter_with_write_text_kwargs(self):
+        """Test S3Parameter write with additional kwargs"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-kwargs")
+        parameter_name = "myapp-kwargs"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        config_data = '{"test": "with_kwargs"}'
+        write_kwargs = {
+            "content_type": "application/json",
+            "cache_control": "no-cache",
+        }
+        
+        # Write with additional kwargs
+        s3path_result = s3_param.write(
+            bsm=self.bsm,
+            value=config_data,
+            version=1,
+            write_text_kwargs=write_kwargs,
+        )
+        
+        assert s3path_result is not None
+        
+        # Verify we can read it back
+        result = s3_param.read(bsm=self.bsm, version=1)
+        assert result == config_data
+
+    def test_s3_parameter_with_read_text_kwargs(self):
+        """Test S3Parameter read with additional kwargs"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-read-kwargs")
+        parameter_name = "myapp-read-kwargs"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Write data first
+        config_data = '{"test": "read_kwargs"}'
+        s3_param.write(
+            bsm=self.bsm,
+            value=config_data,
+            version=1,
+        )
+        
+        # Read with additional kwargs
+        read_kwargs = {"encoding": "utf-8"}
+        result = s3_param.read(
+            bsm=self.bsm,
+            version=1,
+            read_text_kwargs=read_kwargs,
+        )
+        assert result == config_data
+
+    def test_s3_parameter_metadata_handling(self):
+        """Test that metadata is properly set"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-metadata")
+        parameter_name = "myapp-metadata"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        config_data = '{"test": "metadata", "key": "value"}'
+        s3path_result = s3_param.write(
+            bsm=self.bsm,
+            value=config_data,
+            version=1,
+        )
+        
+        # Check that metadata was set
+        s3path = s3_param.get_s3path(1)
+        metadata = s3path.metadata
+        
+        # Should have both VERSION and SHA256 in metadata
+        from aws_config.constants import AwsTagKeyEnum
+        assert AwsTagKeyEnum.CONFIG_VERSION.value in metadata
+        assert AwsTagKeyEnum.CONFIG_SHA256.value in metadata
+        
+        # Verify version metadata
+        assert metadata[AwsTagKeyEnum.CONFIG_VERSION.value] == "1"
+        
+        # Verify SHA256 matches the content
+        from aws_config.utils import sha256_of_text
+        expected_sha256 = sha256_of_text(config_data)
+        assert metadata[AwsTagKeyEnum.CONFIG_SHA256.value] == expected_sha256
+        
+        # Test latest file metadata
+        s3_param.write(
+            bsm=self.bsm,
+            value=config_data,
+            version=None,
+        )
+        
+        s3path_latest = s3_param.get_s3path(None)
+        metadata_latest = s3path_latest.metadata
+        
+        # Latest should have "latest" as version
+        from aws_config.constants import LATEST_VERSION
+        assert metadata_latest[AwsTagKeyEnum.CONFIG_VERSION.value] == LATEST_VERSION
+
+    def test_filename_ordering(self):
+        """Test that filename pattern ensures correct ordering"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-ordering")
+        parameter_name = "myapp-ordering"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Write multiple versions
+        versions = [1, 2, 3, 10]
+        for version in versions:
+            config_data = f'{{"version": {version}}}'
+            s3_param.write(
                 bsm=self.bsm,
-                s3folder_config=s3dir_config.uri,
-                parameter_name=parameter_name,
+                value=config_data,
+                version=version,
             )
-
-        # Test version retrieval methods for empty bucket
-        if versioned:
-            latest_version = s3_param.get_latest_config_version_when_version_is_enabled(bsm=self.bsm)
-            assert latest_version is None
-        else:
-            latest_version = s3_param.get_latest_config_version_when_version_not_enabled(bsm=self.bsm)
-            assert latest_version is None
-
-        # First deployment
-        s3object1 = deploy_config(
+        
+        # Write latest
+        s3_param.write(
             bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 1},
-            tags=tags,
+            value='{"version": "latest"}',
+            version=None,
         )
         
-        # Test S3Object properties
-        assert s3object1 is not None
-        assert s3object1.bucket == s3dir_root.bucket
-        assert s3object1.key is not None
-        assert s3object1.etag is not None
-        # Test other properties that might be None
-        _ = s3object1.expiration
-        _ = s3object1.checksum_crc32
-        _ = s3object1.checksum_crc32c
-        _ = s3object1.checksum_sha1
-        _ = s3object1.checksum_sha256
-        _ = s3object1.server_side_encryption
-        _ = s3object1.version_id
-        _ = s3object1.sse_customer_algorithm
-        _ = s3object1.sse_customer_key_md5
-        _ = s3object1.see_kms_key_id
-        _ = s3object1.sse_kms_encryption_context
-        _ = s3object1.bucket_key_enabled
-        _ = s3object1.request_charged
+        # List objects and verify ordering
+        objects = list(s3_param.s3dir_param.iter_objects(bsm=self.bsm))
+        filenames = [obj.basename for obj in objects]
         
-        # Verify first deployment
-        config_data, config_version = s3_param.read_latest(bsm=self.bsm)
-        assert config_data == {"version": 1}
-        if versioned:
-            assert config_version is not None  # Version ID from S3
-        else:
-            assert config_version == "1"
-
-        config_data, config_version = read_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-        )
-        assert config_data == {"version": 1}
-        if versioned:
-            assert config_version is not None
-        else:
-            assert config_version == "1"
-
-        # Test deploying same config (should do nothing)
-        s3object_same = deploy_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 1},  # Same data
-            tags=tags,
-        )
-        assert s3object_same is None  # No deployment should happen
-
-        # Second deployment with different data
-        s3object2 = deploy_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 2},
-            tags=tags,
-        )
-        assert s3object2 is not None
+        # Latest should come first (000000), then reverse version order (higher numbers = lower values)
+        assert filenames[0].endswith("000000-LATEST.json")
         
-        # Verify second deployment
-        config_data, config_version = s3_param.read_latest(bsm=self.bsm)
-        assert config_data == {"version": 2}
-        if versioned:
-            assert config_version is not None
-        else:
-            assert config_version == "2"
-
-        config_data, config_version = read_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-        )
-        assert config_data == {"version": 2}
-        if versioned:
-            assert config_version is not None
-        else:
-            assert config_version == "2"
-
-        # Test version retrieval methods after deployments
-        if versioned:
-            latest_version = s3_param.get_latest_config_version_when_version_is_enabled(bsm=self.bsm)
-            assert latest_version is not None
-        else:
-            latest_version = s3_param.get_latest_config_version_when_version_not_enabled(bsm=self.bsm)
-            assert latest_version == 2
-
-        # Test delete latest only
-        result = delete_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            include_history=False,
-        )
-        assert result == True
+        # Verify version files are in reverse chronological order
+        version_files = [f for f in filenames if not f.endswith("LATEST.json")]
         
-        # Verify deletion
+        # Version 10 should come first (smallest padded number), then 3, 2, 1
+        # Check that version 10 appears in the first few files
+        assert any("10.json" in f for f in version_files[:2])
+        # Check that version 1 appears in the last few files  
+        assert any("1.json" in f for f in version_files[-2:])
+
+    def test_error_handling(self):
+        """Test error handling scenarios"""
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-errors")
+        parameter_name = "myapp-errors"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Test reading non-existent config
         with pytest.raises(S3ObjectNotExist):
-            _ = s3_param.read_latest(bsm=self.bsm)
+            s3_param.read(bsm=self.bsm, version=None)
+        
         with pytest.raises(S3ObjectNotExist):
-            _ = read_config(
-                bsm=self.bsm,
-                s3folder_config=s3dir_config.uri,
-                parameter_name=parameter_name,
-            )
-
-        # Deploy again for history deletion test
-        deploy_config(
+            s3_param.read(bsm=self.bsm, version=1)
+        
+        # Test reading with None kwargs (should work)
+        # First write something
+        s3_param.write(
             bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 3},
-            tags=tags,
+            value='{"test": "error_handling"}',
+            version=1,
+            write_text_kwargs=None,
         )
         
-        # Test delete with history
-        result = delete_config(
+        # Then read with None kwargs
+        result = s3_param.read(
             bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            include_history=True,
+            version=1,
+            read_text_kwargs=None,
         )
-        assert result == True
-        
-        # Verify complete deletion
-        with pytest.raises(S3ObjectNotExist):
-            _ = s3_param.read_latest(bsm=self.bsm)
-        with pytest.raises(S3ObjectNotExist):
-            _ = read_config(
-                bsm=self.bsm,
-                s3folder_config=s3dir_config.uri,
-                parameter_name=parameter_name,
-            )
-
-    def test_suspended_bucket(
-        self,
-        disable_logger,
-    ):
-        """Test behavior when bucket versioning is suspended"""
-        # Create a bucket and suspend versioning
-        suspended_bucket = "s3-test-suspended-bucket"
-        self.create_s3_bucket(bucket_name=suspended_bucket, enable_versioning=True)
-        
-        # Suspend versioning
-        self.bsm.s3_client.put_bucket_versioning(
-            Bucket=suspended_bucket,
-            VersioningConfiguration={"Status": "Suspended"},
-        )
-        
-        parameter_name = "myapp"
-        s3dir_config = S3Path(f"s3://{suspended_bucket}").joinpath("config")
-        
-        # This should raise an error for suspended bucket
-        with pytest.raises(S3BucketVersionSuspendedError):
-            S3Parameter.new(
-                bsm=self.bsm,
-                s3folder_config=s3dir_config.uri,
-                parameter_name=parameter_name,
-            )
-
-    def test_edge_cases(
-        self,
-        disable_logger,
-    ):
-        """Test edge cases and error scenarios"""
-        parameter_name = "myapp-edge"
-        s3dir_config = self.s3bucket_test_bucket.joinpath("config-edge")
-        
-        s3_param = S3Parameter.new(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-        )
-        
-        # Deploy a config first
-        deploy_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"test": "data"},
-        )
-        
-        # Delete the latest file manually to test get_latest_config_version_when_version_not_enabled
-        # when latest doesn't exist but versioned files do
-        s3_param.s3path_latest.delete(bsm=self.bsm)
-        
-        # This should find the versioned file and return its version
-        latest_version = s3_param.get_latest_config_version_when_version_not_enabled(bsm=self.bsm)
-        assert latest_version == 1
-        
-        # Clean up for next test
-        s3_param.s3path_latest.parent.delete(bsm=self.bsm)
-
-    def test_versioned_bucket_delete_marker(
-        self,
-        disable_logger,
-    ):
-        """Test versioned bucket behavior with delete markers"""
-        parameter_name = "myapp-versioned"
-        s3dir_config = self.s3bucket_test_versioned_bucket.joinpath("config-versioned")
-        
-        s3_param = S3Parameter.new(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-        )
-        
-        # Deploy first version
-        deploy_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 1},
-        )
-        
-        # Deploy second version
-        deploy_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            config_data={"version": 2},
-        )
-        
-        # Delete latest (this will create a delete marker)
-        delete_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            include_history=False,
-        )
-        
-        # Test get_latest_config_version_when_version_is_enabled with delete marker
-        latest_version = s3_param.get_latest_config_version_when_version_is_enabled(bsm=self.bsm)
-        assert latest_version is not None  # Should find the version before delete marker
-        
-        # Clean up completely
-        delete_config(
-            bsm=self.bsm,
-            s3folder_config=s3dir_config.uri,
-            parameter_name=parameter_name,
-            include_history=True,
-        )
+        assert result == '{"test": "error_handling"}'
 
     def test(
         self,
         disable_logger,
     ):
-        self._test(versioned=False)
-        self._test(versioned=True)
+        """Main test entry point - run simplified version"""
+        # Just run a basic comprehensive test to avoid conflicts
+        # when running from the main entry point
+        s3dir_config = self.s3bucket_test_bucket.joinpath("config-main-test")
+        parameter_name = "main-test-param"
+        
+        s3_param = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        
+        # Test basic functionality
+        # 1. Test non-existent read
+        with pytest.raises(S3ObjectNotExist):
+            s3_param.read(bsm=self.bsm, version=999)
+        
+        # 2. Test write and read
+        config_data = '{"test": "main", "version": 1}'
+        s3path_result = s3_param.write(
+            bsm=self.bsm,
+            value=config_data,
+            version=1,
+        )
+        assert s3path_result is not None
+        
+        # 3. Test read back
+        result = s3_param.read(bsm=self.bsm, version=1)
+        assert result == config_data
+        
+        # 4. Test metadata
+        s3path = s3_param.get_s3path(1)
+        metadata = s3path.metadata
+        from aws_config.constants import AwsTagKeyEnum
+        assert AwsTagKeyEnum.CONFIG_VERSION.value in metadata
+        assert AwsTagKeyEnum.CONFIG_SHA256.value in metadata
 
 
 if __name__ == "__main__":

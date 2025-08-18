@@ -2807,14 +2807,14 @@ jeepney = ">=0.6"
 
 [[package]]
 name = "simple-aws-ssm-parameter-store"
-version = "0.1.1"
+version = "0.2.1"
 description = "A Pythonic wrapper library for AWS SSM Parameter Store with enhanced error handling, existence testing, idempotent operations, and comprehensive tag management."
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "simple_aws_ssm_parameter_store-0.1.1-py3-none-any.whl", hash = "sha256:7bc35fd5024b1ccc69e810e1c313f16e1525812072c723e15d4f4776819495e6"},
-    {file = "simple_aws_ssm_parameter_store-0.1.1.tar.gz", hash = "sha256:419aff7a8e65d2e88a3489871a0a809970ffd1ad29fd3c5dcf1db5d5d00b3143"},
+    {file = "simple_aws_ssm_parameter_store-0.2.1-py3-none-any.whl", hash = "sha256:cd8b4ff37661471466441b25ff7021b54a8b86ef1b8c57b553d0734fb8474e7f"},
+    {file = "simple_aws_ssm_parameter_store-0.2.1.tar.gz", hash = "sha256:9050b6cb95441736acac7b8091169f4e7b9f17426d26e0af25f30d2172302552"},
 ]
 
 [package.dependencies]
@@ -3595,4 +3595,4 @@ test = ["moto", "pytest", "pytest-cov"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "f1900d112a309acbb0b9130c146404469aaf05a4ccb8dfc0f246ea760f65e535"
+content-hash = "9f922c61e8caf6da5c5080365bc26d6c304b32d70e2273424d48fcca14a1082d"
