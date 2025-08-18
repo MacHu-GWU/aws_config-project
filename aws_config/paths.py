@@ -7,6 +7,7 @@ dir_package = dir_here
 PACKAGE_NAME = dir_package.name
 
 dir_project_root = dir_package.parent
+dir_tmp = dir_project_root / "tmp"
 
 # ------------------------------------------------------------------------------
 # Virtual Environment Related
