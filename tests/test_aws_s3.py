@@ -224,17 +224,17 @@ class TestS3Parameter(BaseMockAwsTest):
         metadata = s3path.metadata
         
         # Should have both VERSION and SHA256 in metadata
-        from aws_config.constants import AwsTagKeyEnum
-        assert AwsTagKeyEnum.CONFIG_VERSION.value in metadata
-        assert AwsTagKeyEnum.CONFIG_SHA256.value in metadata
+        from aws_config.constants import S3MetadataKeyEnum
+        assert S3MetadataKeyEnum.CONFIG_VERSION.value in metadata
+        assert S3MetadataKeyEnum.CONFIG_SHA256.value in metadata
         
         # Verify version metadata
-        assert metadata[AwsTagKeyEnum.CONFIG_VERSION.value] == "1"
+        assert metadata[S3MetadataKeyEnum.CONFIG_VERSION.value] == "1"
         
         # Verify SHA256 matches the content
         from aws_config.utils import sha256_of_text
         expected_sha256 = sha256_of_text(config_data)
-        assert metadata[AwsTagKeyEnum.CONFIG_SHA256.value] == expected_sha256
+        assert metadata[S3MetadataKeyEnum.CONFIG_SHA256.value] == expected_sha256
         
         # Test latest file metadata
         s3_param.write(
@@ -248,7 +248,7 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Latest should have "latest" as version
         from aws_config.constants import LATEST_VERSION
-        assert metadata_latest[AwsTagKeyEnum.CONFIG_VERSION.value] == LATEST_VERSION
+        assert metadata_latest[S3MetadataKeyEnum.CONFIG_VERSION.value] == LATEST_VERSION
 
     def test_filename_ordering(self):
         """Test that filename pattern ensures correct ordering"""
@@ -363,9 +363,9 @@ class TestS3Parameter(BaseMockAwsTest):
         # 4. Test metadata
         s3path = s3_param.get_s3path(1)
         metadata = s3path.metadata
-        from aws_config.constants import AwsTagKeyEnum
-        assert AwsTagKeyEnum.CONFIG_VERSION.value in metadata
-        assert AwsTagKeyEnum.CONFIG_SHA256.value in metadata
+        from aws_config.constants import S3MetadataKeyEnum
+        assert S3MetadataKeyEnum.CONFIG_VERSION.value in metadata
+        assert S3MetadataKeyEnum.CONFIG_SHA256.value in metadata
 
 
 if __name__ == "__main__":
