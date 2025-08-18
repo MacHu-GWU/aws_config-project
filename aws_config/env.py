@@ -8,36 +8,21 @@ try:
     import typing_extensions as T
 except:  # pragma: no cover
     import typing as T
-import os
-import json
 import string
 import dataclasses
-from pathlib import Path
 from functools import cached_property
 
 # third party library (include vendor)
+from s3pathlib import S3Path
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-from which_runtime.api import Runtime
 from which_env.api import (
     validate_env_name,
     CommonEnvNameEnum,
-    BaseEnvNameEnum,
-    detect_current_env,
 )
-from which_bsm.api import BaseBotoSesEnum
-from .vendor.jsonutils import json_loads
 from .vendor.strutils import slugify
 
 # modules from this submodule
 from .constants import AwsTagKeyEnum, EnvVarNameEnum
-from .app import AppMixin
-from .name import NameMixin
-from .deploy import DeployMixin
-
-# type hint
-if T.TYPE_CHECKING:  # pragma: no cover
-    from s3pathlib import S3Path
-    from boto_session_manager import BotoSesManager
 
 
 def validate_project_name(project_name: str):
@@ -87,12 +72,7 @@ def normalize_parameter_name(param_name: str) -> str:
         return param_name
 
 
-class BaseEnv(
-    BaseModel,
-    AppMixin,
-    NameMixin,
-    DeployMixin,
-):
+class BaseEnv(BaseModel):
     """ """
 
     model_config = ConfigDict(
