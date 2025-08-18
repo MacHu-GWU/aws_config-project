@@ -54,6 +54,7 @@ dependencies = [
     "which_env>=0.1.1,<1.0.0", # Multiple environment management
     "which_runtime>=0.1.1,<1.0.0", # Multiple Runtime management
     "which_bsm>=0.1.1,<1.0.0", # Multiple Boto3 Session management
+    "pydantic>=2.11.0,<3.0.0", # Data validation and settings management
 ]
 
 # ------------------------------------------------------------------------------
