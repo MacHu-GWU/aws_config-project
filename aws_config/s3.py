@@ -33,7 +33,7 @@ from boto_session_manager import BotoSesManager
 from s3pathlib import S3Path
 
 from . import exc
-from .constants import ZFILL, AwsTagKeyEnum, LATEST_VERSION
+from .constants import ZFILL, S3MetadataKeyEnum, LATEST_VERSION
 from .utils import sha256_of_text
 
 if T.TYPE_CHECKING:  # pragma: no cover
@@ -157,7 +157,7 @@ class S3Parameter:
         value: str,
         version: int | None,
         write_text_kwargs: dict[str, T.Any] | None = None,
-    ):
+    ) -> S3Path:
         """
         Write configuration data to S3 with custom versioning.
         
@@ -175,8 +175,8 @@ class S3Parameter:
         else:
             config_version = str(version)
         metadata = {
-            AwsTagKeyEnum.CONFIG_VERSION.value: config_version,
-            AwsTagKeyEnum.CONFIG_SHA256.value: sha256_of_text(value),
+            S3MetadataKeyEnum.CONFIG_VERSION.value: config_version,
+            S3MetadataKeyEnum.CONFIG_SHA256.value: sha256_of_text(value),
         }
         if write_text_kwargs is None:
             write_text_kwargs = {}
