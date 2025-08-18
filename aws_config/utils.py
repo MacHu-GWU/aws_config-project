@@ -3,6 +3,8 @@
 import json
 import hashlib
 
+from .constants import LATEST_VERSION
+
 
 def sha256_of_text(s: str) -> str:
     m = hashlib.sha256()
@@ -20,7 +22,7 @@ def sha256_of_config_data(data: dict) -> str:
     )
 
 
-def encode_version(version: T.Optional[T.Union[int, str]]) -> str:
+def encode_version(version: int | str | None) -> str:
     """
     Normalize version input into standardized string format.
 
