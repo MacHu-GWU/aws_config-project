@@ -3,8 +3,6 @@
 from aws_config.env import (
     validate_project_name,
     normalize_parameter_name,
-    BaseEnv,
-    T_BASE_ENV,
 )
 
 import pytest

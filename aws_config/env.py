@@ -9,7 +9,6 @@ try:
 except:  # pragma: no cover
     import typing as T
 import string
-import dataclasses
 from functools import cached_property
 
 # third party library (include vendor)
@@ -85,7 +84,7 @@ class BaseEnv(BaseModel):
     aws_account_id: str | None = Field(default=None)
     aws_region: str | None = Field(default=None)
     s3uri_data: str | None = Field(default=None)
-    s3uri_artifacts: str | None = dataclasses.field(default=None)
+    s3uri_artifacts: str | None = Field(default=None)
 
     @field_validator("project_name", mode="after")
     @classmethod
@@ -154,6 +153,11 @@ class BaseEnv(BaseModel):
 
         Example: "my_project-dev" -> "my_project-dev"
         Example: "aws_project-prod" -> "p-aws_project-prod"
+
+        .. note::
+
+            If you want to use "/path/to/parameter-name" style, you can override
+            this property in your environment class to return a different value.
         """
         return normalize_parameter_name(self.prefix_name_snake)
 
