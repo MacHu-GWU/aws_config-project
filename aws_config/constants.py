@@ -58,9 +58,9 @@ class AwsTagKeyEnum(BetterStrEnum):
     sec_confidentiality = "sec:confidentiality"
     sec_compliance = "sec:compliance"
 
-    project_name = "aws_config:project_name"
-    env_name = "aws_config:env_name"
-    config_sha256 = "aws_config:config_sha256"
+    project_name = "config:project_name"
+    env_name = "config:env_name"
+    config_sha256 = "config:config_sha256"
 
 
 ALL = "all"

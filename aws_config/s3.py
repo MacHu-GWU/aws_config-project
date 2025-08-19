@@ -26,6 +26,7 @@ except ImportError:  # pragma: no cover
     import typing as T
 
 import dataclasses
+from datetime import datetime, timezone, timedelta
 from functools import cached_property
 
 import botocore.exceptions
@@ -46,12 +47,12 @@ def read_text(
 ) -> str:
     """
     Read text content from S3 object with proper error handling.
-    
+
     :param s3path: S3 path to read from
     :param kwargs: Additional arguments passed to S3Path.read_text()
-    
+
     :returns: Text content of the S3 object
-    
+
     :raises S3ObjectNotExist: If the S3 object does not exist
     """
     try:
@@ -74,7 +75,7 @@ class S3Parameter:
     **Why use S3 for configuration storage?**
 
     - Centralized configuration management across environments
-    - Built-in durability and availability guarantees  
+    - Built-in durability and availability guarantees
     - Integration with AWS IAM for access control
     - Audit trail through CloudTrail
     - Cost-effective storage for configuration data
@@ -101,7 +102,7 @@ class S3Parameter:
     ```
     s3://bucket/config/myapp/myapp-000000-latest.json  (latest pointer)
     s3://bucket/config/myapp/myapp-999997-3.json       (version 3)
-    s3://bucket/config/myapp/myapp-999998-2.json       (version 2)  
+    s3://bucket/config/myapp/myapp-999998-2.json       (version 2)
     s3://bucket/config/myapp/myapp-999999-1.json       (version 1)
     ```
 
@@ -127,7 +128,7 @@ class S3Parameter:
     ) -> S3Path:
         """
         Get the S3 path for a specific version of the parameter.
-        
+
         For versioning-disabled buckets, this creates different filenames
         based on the version number. The filename encoding ensures that
         the latest version appears first in S3 object listings.
@@ -138,7 +139,7 @@ class S3Parameter:
 
         **File naming pattern:**
 
-        - Latest: ``{parameter_name}-000000-latest.json`` 
+        - Latest: ``{parameter_name}-000000-latest.json``
         - Version 1: ``{parameter_name}-999999-1.json``
         - Version 2: ``{parameter_name}-999998-2.json``
         """
@@ -153,19 +154,19 @@ class S3Parameter:
 
     def write(
         self,
-        bsm: T.Union["BotoSesManager", "S3Client"],
+        s3_client: "S3Client",
         value: str,
         version: int | None = None,
         write_text_kwargs: dict[str, T.Any] | None = None,
     ) -> S3Path:
         """
         Write configuration data to S3 with custom versioning.
-        
-        :param bsm: BotoSesManager or S3Client for S3 operations
+
+        :param s3_client: S3Client for S3 operations
         :param value: Configuration data as JSON string
         :param version: Version number for metadata and filename
         :param write_text_kwargs: Additional arguments for S3 write operation
-        
+
         :returns: S3Path of the written object
         """
         s3path = self.get_s3path(version)
@@ -181,7 +182,7 @@ class S3Parameter:
         if write_text_kwargs is None:
             write_text_kwargs = {}
         s3path_new = s3path.write_text(
-            bsm=bsm,
+            bsm=s3_client,
             data=value,
             metadata=metadata,
             **write_text_kwargs,
@@ -190,7 +191,7 @@ class S3Parameter:
 
     def read(
         self,
-        bsm: T.Union["BotoSesManager", "S3Client"],
+        s3_client: "S3Client",
         version: int | None = None,
         read_text_kwargs: dict[str, T.Any] | None = None,
     ) -> str:
@@ -201,7 +202,7 @@ class S3Parameter:
         custom file naming conventions. Can read either the latest version
         or a specific version number.
 
-        :param bsm: BotoSesManager or S3Client for S3 operations
+        :param s3_client: S3Client for S3 operations
         :param version: Version number (1, 2, 3, ...) or None for latest
         :param read_text_kwargs: Additional arguments for S3 read operation
 
@@ -212,6 +213,39 @@ class S3Parameter:
             read_text_kwargs = {}
         return read_text(
             s3path=s3path,
-            bsm=bsm,
+            bsm=s3_client,
             **read_text_kwargs,
         )
+
+    def delete(
+        self,
+        s3_client: "S3Client",
+        version: int | None = None,
+    ) -> S3Path:
+        s3path = self.get_s3path(version)
+        s3path.delete(bsm=s3_client)
+        return s3path
+
+    def delete_all(
+        self,
+        s3_client: "S3Client",
+    ):
+        self.s3dir_param.delete(bsm=s3_client)
+
+    def delete_last(
+        self,
+        s3_client: "S3Client",
+        keep_last_n: int = 10,
+        purge_older_than_secs: int = 90 * 24 * 60 * 60,
+    ):
+        s3path_list = list()
+        for s3path in self.s3dir_param.iter_objects(bsm=s3_client):
+            if s3path.basename.startswith(
+                f"{self.parameter_name}-"
+            ) and s3path.basename.endswith(".json"):
+                s3path_list.append(s3path)
+        now = datetime.now(tz=timezone.utc)
+        expire = now - timedelta(seconds=purge_older_than_secs)
+        for s3path in s3path_list[keep_last_n + 1 :]:
+            if s3path.last_modified < expire:
+                s3path.delete(bsm=s3_client)
