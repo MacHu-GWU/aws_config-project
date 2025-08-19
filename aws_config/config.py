@@ -48,16 +48,30 @@ if T.TYPE_CHECKING:  # pragma: no cover
 
 @dataclasses.dataclass(frozen=True)
 class DeploymentResult:
-    param: Parameter | None
+    before_param: Parameter | None
+    after_param: Parameter | None
     s3path_latest: S3Path | None
     s3path_versioned: S3Path | None
+
+    def __post_init__(self):
+        if (self.before_param is None) and (self.after_param is None):
+            raise ValueError(
+                "Either before_param (when it's an update) "
+                "or after_param (when it's a create) must be set."
+            )
+        v = sum([(self.s3path_latest is None), (self.s3path_versioned is None)])
+        if v == 1:
+            raise ValueError(
+                "s3path_latest and s3path_versioned must both be set "
+                "(when it's a create or update) or not set (when there is not update."
+            )
 
     @property
     def is_ssm_deployed(self) -> bool:
         """
         Indicate if SSM parameter deployment operation happened.
         """
-        return self.param is not None
+        return self.after_param is not None
 
     @property
     def is_s3_deployed(self) -> bool:
@@ -65,6 +79,26 @@ class DeploymentResult:
         Indicate if S3 parameter deployment operation happened.
         """
         return self.s3path_latest is not None
+
+    @property
+    def parameter_name(self) -> str:
+        """
+        Get the SSM parameter name after deployment.
+        """
+        if self.after_param is None:
+            return self.before_param.name
+        else:
+            return self.after_param.name
+
+    @property
+    def version(self) -> int:
+        """
+        Get the version of the SSM parameter after deployment.
+        """
+        if self.after_param is None:
+            return self.before_param.version
+        else:
+            return self.after_param.version
 
 
 @dataclasses.dataclass
@@ -166,7 +200,7 @@ class BaseConfig(
         Retrieves and deserializes configuration data for the specified environment,
         applying all shared value inheritance and merging sensitive/non-sensitive data.
 
-        :param env_name: Environment name (string) or enum value
+        :after_param env_name: Environment name (string) or enum value
         :return: Environment configuration instance with all values resolved
         :raises TypeError: If configuration data doesn't match environment schema
         """
@@ -240,11 +274,11 @@ class BaseConfig(
         SSM Parameter Store (for runtime access) and S3 (for backup and versioning).
         Only creates S3 files if the SSM parameter actually changes.
 
-        :param ssm_client: SSM client for parameter store operations
-        :param s3_client: S3 client for backup storage
-        :param s3dir_config: S3 directory for configuration backup
-        :param env_name: Environment name or ALL for consolidated config
-        :param tags: Additional AWS resource tags
+        :after_param ssm_client: SSM client for parameter store operations
+        :after_param s3_client: S3 client for backup storage
+        :after_param s3dir_config: S3 directory for configuration backup
+        :after_param env_name: Environment name or ALL for consolidated config
+        :after_param tags: Additional AWS resource tags
         :return: DeploymentResult with operation details
 
         .. note::
@@ -296,14 +330,16 @@ class BaseConfig(
                 write_text_kwargs={"tags": tags},
             )
             return DeploymentResult(
-                param=after_param,
+                before_param=before_param,
+                after_param=after_param,
                 s3path_latest=s3path_latest,
                 s3path_versioned=s3path_versioned,
             )
         # parameter not changed
         else:
             return DeploymentResult(
-                param=after_param,
+                before_param=before_param,
+                after_param=after_param,
                 s3path_latest=None,
                 s3path_versioned=None,
             )
@@ -323,11 +359,11 @@ class BaseConfig(
         deletes S3 backup files if explicitly requested. S3 deletion is
         disabled by default to preserve backup history.
 
-        :param ssm_client: SSM client for parameter store operations
-        :param env_name: Environment name or ALL for consolidated config
-        :param s3_client: S3 client (required if include_s3=True)
-        :param include_s3: Whether to also delete S3 backup files
-        :param s3dir_config: S3 directory (required if include_s3=True)
+        :after_param ssm_client: SSM client for parameter store operations
+        :after_param env_name: Environment name or ALL for consolidated config
+        :after_param s3_client: S3 client (required if include_s3=True)
+        :after_param include_s3: Whether to also delete S3 backup files
+        :after_param s3dir_config: S3 directory (required if include_s3=True)
 
         .. note::
             SSM parameter deletion removes all versions. S3 serves as backup

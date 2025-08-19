@@ -46,7 +46,7 @@ def test_normalize_parameter_name():
     assert normalize_parameter_name("ssm-project") == "p-ssm-project"
 
     # Test normal parameters - no prefix needed
-    assert normalize_parameter_name("normal-param") == "normal-param"
+    assert normalize_parameter_name("normal-after_param") == "normal-after_param"
     assert normalize_parameter_name("my-project") == "my-project"
 
 

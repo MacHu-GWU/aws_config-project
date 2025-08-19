@@ -30,8 +30,8 @@ def run_unit_test(
     """
     Run ``pytest -s --tb=native /path/to/script.py`` Command.
 
-    :param script: the path to test script
-    :param root_dir: the dir you want to temporarily set as cwd
+    :after_param script: the path to test script
+    :after_param root_dir: the dir you want to temporarily set as cwd
     """
     bin_pytest = Path(sys.executable).parent / "pytest"
     args = [
@@ -106,13 +106,13 @@ def run_cov_test(
                 is_folder=True, # my_library is a folder
             )
 
-    :param script: the test script absolute path
-    :param module: the dot notation to the python module you want to calculate
+    :after_param script: the test script absolute path
+    :after_param module: the dot notation to the python module you want to calculate
         coverage
-    :param root_dir: the dir to dump coverage results binary file
-    :param htmlcov_dir: the dir to dump HTML output
-    :param preview: whether to open the HTML output in web browser after the test
-    :param is_folder: whether the module is a folder
+    :after_param root_dir: the dir to dump coverage results binary file
+    :after_param htmlcov_dir: the dir to dump HTML output
+    :after_param preview: whether to open the HTML output in web browser after the test
+    :after_param is_folder: whether the module is a folder
 
     Reference:
 

@@ -158,8 +158,8 @@ class MyClass:
     """
     Class description and purpose.
     
-    :param param_name: Parameter description, defaults to default_value
-    :param another_param: Another parameter description
+    :after_param param_name: Parameter description, defaults to default_value
+    :after_param another_param: Another parameter description
     
     :raises ErrorType: Error description
     
@@ -178,8 +178,8 @@ def func(arg1: int, arg2: str) -> str:
     """
     Function description and purpose.
     
-    :param arg1: Description of arg1
-    :param arg2: Description of arg2, defaults to default_value if applicable
+    :after_param arg1: Description of arg1
+    :after_param arg2: Description of arg2, defaults to default_value if applicable
     
     :raises ErrorType: Error description
     

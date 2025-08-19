@@ -1170,9 +1170,9 @@ class MultiReplace(object):
     Keyword Arguments:
 
     :type regex: bool
-    :param regex: Treat search keys as regular expressions [Default: False]
+    :after_param regex: Treat search keys as regular expressions [Default: False]
     :type flags: int
-    :param flags: flags to pass to the regex engine during compile
+    :after_param flags: flags to pass to the regex engine during compile
 
     Dictionary Usage::
 

@@ -503,7 +503,7 @@ class TestS3Parameter(BaseMockAwsTest):
         # Just run a basic comprehensive test to avoid conflicts
         # when running from the main entry point
         s3dir_config = self.s3bucket_test_bucket.joinpath("config-main-test")
-        parameter_name = "main-test-param"
+        parameter_name = "main-test-after_param"
         
         s3_param = S3Parameter(
             s3dir_config=s3dir_config,

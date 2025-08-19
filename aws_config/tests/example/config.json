@@ -1,0 +1,11 @@
+{
+    "_defaults": {
+        "*.project_name": "my_app"
+    },
+    "dev": {
+        "username": "alice"
+    },
+    "prod": {
+        "username": "bob"
+    }
+}

@@ -30,7 +30,7 @@ def encode_version(version: int | str | None) -> str:
     by removing leading zeros from numeric versions while preserving the
     special LATEST version identifier.
 
-    :param version: Version input - None, "LATEST", integer, or zero-padded string
+    :after_param version: Version input - None, "LATEST", integer, or zero-padded string
 
     :returns: Normalized version string ("LATEST" or numeric without leading zeros)
 

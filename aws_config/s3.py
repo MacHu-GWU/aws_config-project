@@ -48,8 +48,8 @@ def read_text(
     """
     Read text content from S3 object with proper error handling.
 
-    :param s3path: S3 path to read from
-    :param kwargs: Additional arguments passed to S3Path.read_text()
+    :after_param s3path: S3 path to read from
+    :after_param kwargs: Additional arguments passed to S3Path.read_text()
 
     :returns: Text content of the S3 object
 
@@ -106,8 +106,8 @@ class S3Parameter:
     s3://bucket/config/myapp/myapp-999999-1.json       (version 1)
     ```
 
-    :param s3dir_config: S3 directory where the parameter is stored (no filename)
-    :param parameter_name: Parameter name used as the base filename
+    :after_param s3dir_config: S3 directory where the parameter is stored (no filename)
+    :after_param parameter_name: Parameter name used as the base filename
 
     .. note::
         This class only works with versioning-disabled S3 buckets. The bucket
@@ -133,7 +133,7 @@ class S3Parameter:
         based on the version number. The filename encoding ensures that
         the latest version appears first in S3 object listings.
 
-        :param version: Version number (1, 2, 3, ...), None for latest
+        :after_param version: Version number (1, 2, 3, ...), None for latest
 
         :return: S3Path for the versioned file
 
@@ -162,10 +162,10 @@ class S3Parameter:
         """
         Write configuration data to S3 with custom versioning.
 
-        :param s3_client: S3Client for S3 operations
-        :param value: Configuration data as JSON string
-        :param version: Version number for metadata and filename
-        :param write_text_kwargs: Additional arguments for S3 write operation
+        :after_param s3_client: S3Client for S3 operations
+        :after_param value: Configuration data as JSON string
+        :after_param version: Version number for metadata and filename
+        :after_param write_text_kwargs: Additional arguments for S3 write operation
 
         :returns: S3Path of the written object
         """
@@ -202,9 +202,9 @@ class S3Parameter:
         custom file naming conventions. Can read either the latest version
         or a specific version number.
 
-        :param s3_client: S3Client for S3 operations
-        :param version: Version number (1, 2, 3, ...) or None for latest
-        :param read_text_kwargs: Additional arguments for S3 read operation
+        :after_param s3_client: S3Client for S3 operations
+        :after_param version: Version number (1, 2, 3, ...) or None for latest
+        :after_param read_text_kwargs: Additional arguments for S3 read operation
 
         :returns: Configuration data as JSON string
         """
@@ -225,8 +225,8 @@ class S3Parameter:
         """
         Delete a specific version of the configuration file from S3.
 
-        :param s3_client: S3Client for S3 operations
-        :param version: Version number (1, 2, 3, ...) or None for latest
+        :after_param s3_client: S3Client for S3 operations
+        :after_param version: Version number (1, 2, 3, ...) or None for latest
 
         :returns: S3Path of the deleted object
         """
@@ -244,7 +244,7 @@ class S3Parameter:
         Removes the entire parameter directory and all versioned files.
         This operation cannot be undone.
 
-        :param s3_client: S3Client for S3 operations
+        :after_param s3_client: S3Client for S3 operations
         """
         self.s3dir_param.delete(bsm=s3_client)
 
@@ -260,9 +260,9 @@ class S3Parameter:
         Cleans up old versioned files while preserving recent ones. Files are
         deleted only if they exceed both the count limit and age limit.
 
-        :param s3_client: S3Client for S3 operations
-        :param keep_last_n: Minimum number of files to keep (default: 10)
-        :param purge_older_than_secs: Delete files older than this (default: 90 days)
+        :after_param s3_client: S3Client for S3 operations
+        :after_param keep_last_n: Minimum number of files to keep (default: 10)
+        :after_param purge_older_than_secs: Delete files older than this (default: 90 days)
         """
         s3path_list = list()
         for s3path in self.s3dir_param.iter_objects(bsm=s3_client):

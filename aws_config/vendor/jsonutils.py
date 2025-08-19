@@ -8,8 +8,8 @@ def strip_comment_line_with_symbol(line: str, comment_symbol: str):
     """
     Strip comments from line string.
 
-    :param line: the single line string that you want to strip out comments.
-    :param comment_symbol: the comment char that indicate that the comment starts from.
+    :after_param line: the single line string that you want to strip out comments.
+    :after_param comment_symbol: the comment char that indicate that the comment starts from.
     """
     parts = line.split(comment_symbol)
     counts = [len(findall(r'(?:^|[^"\\]|(?:\\\\|\\")+)(")', part)) for part in parts]
@@ -26,8 +26,8 @@ def strip_comments(text: str, comment_symbols=frozenset(("#", "//"))):
     """
     Strip comments from json string.
 
-    :param text: A string containing json with comments started by comment_symbols.
-    :param comment_symbols: Iterable of symbols that start a line comment (default # or //).
+    :after_param text: A string containing json with comments started by comment_symbols.
+    :after_param comment_symbols: Iterable of symbols that start a line comment (default # or //).
 
     :return: The string with the comments removed.
     """

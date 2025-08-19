@@ -31,7 +31,7 @@ def validate_project_name(project_name: str):
     Ensures project names work across AWS services and infrastructure tools.
     Rules enforce compatibility with S3 buckets, SSM parameters, and IAM resources.
 
-    :param project_name: Project identifier to validate
+    :after_param project_name: Project identifier to validate
     :raises ValueError: If name violates naming rules
     """
     if project_name[0] not in string.ascii_lowercase:
@@ -54,7 +54,7 @@ def normalize_parameter_name(param_name: str) -> str:
     - Ensures consistent naming across all AWS accounts
     - Handles edge cases where project names might conflict with AWS reserved words
 
-    :param param_name: Original parameter name
+    :after_param param_name: Original parameter name
     :return: AWS-compliant parameter name
 
     Example:
