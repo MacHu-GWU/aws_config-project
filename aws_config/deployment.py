@@ -136,13 +136,13 @@ class Deployment:
             parameter_name=self.parameter_name,
         )
         s3path_latest = s3_parameter.write(
-            bsm=s3_client,
+            s3_client=s3_client,
             value=self.parameter_value,
             version=None,
             write_text_kwargs={"tags": tags},
         )
         s3path_versioned = s3_parameter.write(
-            bsm=s3_client,
+            s3_client=s3_client,
             value=self.parameter_value,
             version=version,
             write_text_kwargs={"tags": tags},
