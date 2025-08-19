@@ -11,6 +11,7 @@ from .env import validate_project_name
 from .env import normalize_parameter_name
 from .env import BaseEnv
 from .env import T_BASE_ENV
+from .config import BaseEnvNameEnum
 from .config import T_BASE_ENV_NAME_ENUM
 from .config import BaseConfig
 from .config import T_BASE_CONFIG

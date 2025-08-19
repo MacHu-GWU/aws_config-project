@@ -6,7 +6,7 @@ certifi==2025.1.31 ; python_version >= "3.10" and python_version < "4.0"
 cffi==1.17.1 ; python_version >= "3.10" and python_version < "4.0" and (platform_machine != "ppc64le" and platform_machine != "s390x" and sys_platform == "linux" and platform_python_implementation != "PyPy" or implementation_name == "pypy") and python_version >= "3.8"
 charset-normalizer==3.4.1 ; python_version >= "3.10" and python_version < "4.0"
 colorama==0.4.6 ; python_version >= "3.10" and python_version < "4.0" and (os_name == "nt" or sys_platform == "win32")
-configcraft==0.1.1 ; python_version >= "3.10" and python_version < "4.0"
+configcraft==0.1.2 ; python_version >= "3.10" and python_version < "4.0"
 coverage==7.7.1 ; python_version >= "3.10" and python_version < "4.0"
 cryptography==43.0.3 ; python_version >= "3.10" and python_version < "4.0" and platform_machine != "ppc64le" and platform_machine != "s390x" and sys_platform == "linux"
 enum-mate==0.1.1 ; python_version >= "3.10" and python_version < "4.0"

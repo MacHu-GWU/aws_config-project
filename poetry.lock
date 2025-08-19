@@ -917,14 +917,14 @@ files = [
 
 [[package]]
 name = "configcraft"
-version = "0.1.1"
+version = "0.1.2"
 description = "A Python library for DRY configuration management with inheritance patterns and secure configuration merging."
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "configcraft-0.1.1-py3-none-any.whl", hash = "sha256:c7de7de7dee51a196c4528bc190b028a86de381e0ae235c8c59cdde64f6726d2"},
-    {file = "configcraft-0.1.1.tar.gz", hash = "sha256:10ade1a8dab3e67b556a3d92cc4e0d4bb20ae0e7151f75175ef54a198f2bbd6c"},
+    {file = "configcraft-0.1.2-py3-none-any.whl", hash = "sha256:bd5664db080476b9da581147d79f9dc2dc079386a843d0b08267ee46adf2487f"},
+    {file = "configcraft-0.1.2.tar.gz", hash = "sha256:619e86c3b3efed176a576a33f8eff16c27dfe265831d52dc4c2b1d6e834e4f21"},
 ]
 
 [package.extras]
@@ -3756,4 +3756,4 @@ test = ["moto", "pytest", "pytest-cov"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "32ed4662bb421c37fa331d92849095ea0ff1795eba49ca5d20ce33e6b01b84d4"
+content-hash = "77591d1f5a8e120f7b6276783cfbdf2158772f9d6f2fb8aafe999284ac81c788"

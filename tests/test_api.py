@@ -16,6 +16,8 @@ def test():
     _ = api.normalize_parameter_name
     _ = api.BaseEnv
     _ = api.T_BASE_ENV
+    _ = api.BaseEnvNameEnum
+    _ = api.T_BASE_ENV_NAME_ENUM
     _ = api.BaseConfig
     _ = api.T_BASE_CONFIG
 

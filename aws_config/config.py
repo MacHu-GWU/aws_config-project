@@ -27,7 +27,7 @@ from simple_aws_ssm_parameter_store.api import (
     delete_parameter,
 )
 from which_env.api import validate_env_name, BaseEnvNameEnum
-from configcraft.api import SHARED, apply_inheritance, deep_merge
+from configcraft.api import DEFAULTS, apply_inheritance, deep_merge
 from .vendor.strutils import slugify
 
 from .constants import ALL, AwsTagKeyEnum
@@ -90,7 +90,7 @@ class BaseConfig(
         """
         validate_project_name(self.project_name)
         for env_name in self.data:
-            if env_name != SHARED:
+            if env_name != DEFAULTS:
                 validate_env_name(env_name)
 
     def _apply_shared(self):
@@ -128,7 +128,7 @@ class BaseConfig(
 
     @cached_property
     def project_name(self) -> str:
-        return self.data["_shared"]["*.project_name"]
+        return self.data[DEFAULTS]["*.project_name"]
 
     @cached_property
     def project_name_slug(self) -> str:
@@ -199,17 +199,17 @@ class BaseConfig(
         parameter_name = env.parameter_name
         parameter_data = {
             "data": {
-                SHARED: {
+                DEFAULTS: {
                     k: v
-                    for k, v in self.data.get(SHARED, {}).items()
+                    for k, v in self.data.get(DEFAULTS, {}).items()
                     if k.startswith("*") or k.startswith(f"{env_name}.")
                 },
                 env_name: self.data[env_name],
             },
             "secret_data": {
-                SHARED: {
+                DEFAULTS: {
                     k: v
-                    for k, v in self.secret_data.get(SHARED, {}).items()
+                    for k, v in self.secret_data.get(DEFAULTS, {}).items()
                     if k.startswith("*") or k.startswith(f"{env_name}.")
                 },
                 env_name: self.secret_data[env_name],

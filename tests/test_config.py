@@ -4,7 +4,7 @@ from aws_config.config import BaseConfig, BaseEnvNameEnum
 
 import pytest
 from pydantic import Field, ValidationError
-from configcraft.api import SHARED
+from configcraft.api import DEFAULTS
 from simple_aws_ssm_parameter_store.api import ParameterType
 from aws_config.env import BaseEnv
 from aws_config.paths import dir_tmp
@@ -30,7 +30,7 @@ class Config(
 
 
 sample_data = {
-    SHARED: {
+    DEFAULTS: {
         "*.project_name": "my_app",
         "*.aws_region": "us-east-1",
     },
@@ -78,7 +78,7 @@ class TestConfig(BaseMockAwsTest):
     def test_validation_error(self):
         config = Config(
             data={
-                SHARED: {
+                DEFAULTS: {
                     "*.project_name": "my_app",
                 },
                 EnvNameEnum.dev: {
