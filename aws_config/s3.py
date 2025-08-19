@@ -191,7 +191,7 @@ class S3Parameter:
     def read(
         self,
         bsm: T.Union["BotoSesManager", "S3Client"],
-        version: int | None = None`,
+        version: int | None = None,
         read_text_kwargs: dict[str, T.Any] | None = None,
     ) -> str:
         """

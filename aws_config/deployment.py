@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+Simple Command Pattern wrapper for AWS configuration deployment operations.
+"""
+
 import typing as T
 import json
 import dataclasses
@@ -27,29 +31,11 @@ if T.TYPE_CHECKING:  # pragma: no cover
 @dataclasses.dataclass
 class Deployment:
     """
-    Represents a single configuration deployment operation to AWS.
+    Simple wrapper for AWS configuration deployment operations.
 
-    This class encapsulates the data and metadata for deploying configuration
-    to either AWS SSM Parameter Store or S3. It serves as a deployment unit
-    that can be executed independently and tracks its own state.
-
-    **Key responsibilities:**
-
-    - Package configuration data for deployment
-    - Execute deployment to SSM Parameter Store or S3
-    - Handle deletion operations
-    - Track deployment results and status
-
-    **Deployment targets:**
-
-    - **SSM Parameter Store**: Fast runtime access, encrypted storage
-    - **S3**: Historical backup, versioning, cost-effective storage
-
-    **Usage pattern:**
-
-    1. Created by :meth:`BaseConfig.prepare_deploy` for each environment
-    2. Execute deployment via :meth:`deploy_to_ssm_parameter` or :meth:`deploy_to_s3`
-    3. Track results through deployment and deletion attributes
+    Uses Command Pattern to encapsulate deployment operations to SSM Parameter Store
+    and S3. Simplifies AWS operations by providing unified interface for deployment
+    and cleanup across different AWS services.
 
     :param parameter_name: AWS resource name for this deployment
     :param parameter_data: Configuration data to deploy (dict format)
@@ -67,16 +53,16 @@ class Deployment:
     def parameter_value(self) -> str:
         return json.dumps(self.parameter_data)
 
-    @property
-    def parameter_name_for_arn(self) -> str:
-        """
-        Return the parameter name for ARN. The parameter name could have
-        a leading "/", in this case, we should strip it out.
-        """
-        if self.parameter_name.startswith("/"):  # pragma: no cover
-            return self.parameter_name[1:]
-        else:
-            return self.parameter_name
+    # @property
+    # def parameter_name_for_arn(self) -> str:
+    #     """
+    #     Return the parameter name for ARN. The parameter name could have
+    #     a leading "/", in this case, we should strip it out.
+    #     """
+    #     if self.parameter_name.startswith("/"):  # pragma: no cover
+    #         return self.parameter_name[1:]
+    #     else:
+    #         return self.parameter_name
 
     def deploy_to_ssm_parameter(
         self,
@@ -92,17 +78,11 @@ class Deployment:
         data_type: str | None = OPT,
     ):
         """
-        Deploy configuration data to AWS SSM Parameter Store.
-
-        Stores configuration as encrypted JSON in SSM Parameter Store for
-        fast runtime access by applications. Automatically adds metadata
-        tags for tracking and organization.
+        Deploy configuration to SSM Parameter Store.
 
         :param ssm_client: SSMClient for AWS operations
-        :param parameter_with_encryption: Whether to encrypt parameter value
         :param tags: Additional AWS resource tags
-        :param verbose: Whether to log deployment progress
-        :return: AWS Parameter object representing the deployed configuration
+        :return: Tuple of (before_param, after_param)
         """
         if tags is None:
             tags = {}
@@ -136,16 +116,12 @@ class Deployment:
         tags: dict[str, str] | None = None,
     ) -> tuple[S3Path, S3Path]:
         """
-        Deploy configuration data to AWS S3 for backup and versioning.
+        Deploy configuration to S3 with versioning.
 
-        Stores configuration as JSON files in S3 with automatic versioning
-        support. Provides cost-effective historical storage and audit trail.
-
-        :param bsm: BotoSesManager for AWS operations
-        :param s3folder_config: S3 folder URI where config will be stored
+        :param s3_client: S3Client for AWS operations
+        :param version: Version number for the deployment
         :param tags: Additional AWS resource tags
-        :param verbose: Whether to log deployment progress
-        :return: S3Object representing the deployed configuration file
+        :return: Tuple of (latest_s3path, versioned_s3path)
         """
         if tags is None:
             tags = {}
@@ -177,13 +153,9 @@ class Deployment:
         ssm_parameter: "SSMClient",
     ) -> bool:
         """
-        Delete configuration from AWS SSM Parameter Store.
+        Delete configuration from SSM Parameter Store.
 
-        Permanently removes the parameter from SSM Parameter Store.
-        This operation cannot be undone.
-
-        :param bsm: BotoSesManager for AWS operations
-
+        :param ssm_parameter: SSMClient for AWS operations
         :return: Boolean indicating if deletion occurred
         """
         return delete_parameter(
@@ -197,14 +169,10 @@ class Deployment:
         version: int | None = None,
     ):
         """
-        Delete configuration from AWS S3.
+        Delete configuration from S3.
 
-        Removes configuration files from S3. Behavior depends on the
-        include_history flag and bucket versioning settings.
-
-        :param bsm: BotoSesManager for AWS operations
-
-        :return: Boolean indicating if deletion occurred
+        :param s3_client: S3Client for AWS operations
+        :param version: Version to delete, None for latest
         """
         s3_parameter = S3Parameter(
             s3dir_config=self.s3dir_config,
