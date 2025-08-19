@@ -48,19 +48,31 @@ if T.TYPE_CHECKING:  # pragma: no cover
 
 @dataclasses.dataclass(frozen=True)
 class DeploymentResult:
+    """
+    Result of a :meth:`BaseConfig.deploy_env_parameter` operation.
+    to AWS SSM Parameter Store and S3.
+
+    :param before_param: Parameter before deployment (if exists)
+    :param after_param: Parameter after deployment (if exists)
+    :param s3path_latest: S3 path for the latest version (if created)
+    :param s3path_versioned: S3 path for the versioned file (if created)
+    """
+
     before_param: Parameter | None
     after_param: Parameter | None
     s3path_latest: S3Path | None
     s3path_versioned: S3Path | None
 
     def __post_init__(self):
-        if (self.before_param is None) and (self.after_param is None):
+        if (self.before_param is None) and (
+            self.after_param is None
+        ):  # pragma: no cover
             raise ValueError(
                 "Either before_param (when it's an update) "
                 "or after_param (when it's a create) must be set."
             )
         v = sum([(self.s3path_latest is None), (self.s3path_versioned is None)])
-        if v == 1:
+        if v == 1:  # pragma: no cover
             raise ValueError(
                 "s3path_latest and s3path_versioned must both be set "
                 "(when it's a create or update) or not set (when there is not update."
@@ -383,7 +395,7 @@ class BaseConfig(
                 s3dir_config=s3dir_config,
                 parameter_name=parameter_name,
             )
-            s3_parameter.delete_all(bsm=s3_client)
+            s3_parameter.delete_all(s3_client=s3_client)
 
 
 T_BASE_CONFIG = T.TypeVar("T_BASE_CONFIG", bound=BaseConfig)

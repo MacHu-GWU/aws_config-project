@@ -125,6 +125,8 @@ class TestConfig(BaseMockAwsTest):
         )
         assert result.is_ssm_deployed is True
         assert result.is_s3_deployed is True
+        assert result.parameter_name == "my_app-dev"
+        assert result.version == 1
 
         # Second deployment with same data - should skip (no changes)
         result = config.deploy_env_parameter(
@@ -136,6 +138,8 @@ class TestConfig(BaseMockAwsTest):
         )
         assert result.is_ssm_deployed is False
         assert result.is_s3_deployed is False
+        assert result.parameter_name == "my_app-dev"
+        assert result.version == 1
 
         # Deploy ALL environments - should create consolidated parameter
         result = config.deploy_env_parameter(
@@ -146,6 +150,8 @@ class TestConfig(BaseMockAwsTest):
         )
         assert result.is_ssm_deployed is True
         assert result.is_s3_deployed is True
+        assert result.parameter_name == "my_app"
+        assert result.version == 1
 
         # Re-deploy ALL with same data - should skip (no changes)
         result = config.deploy_env_parameter(
@@ -156,6 +162,29 @@ class TestConfig(BaseMockAwsTest):
         )
         assert result.is_ssm_deployed is False
         assert result.is_s3_deployed is False
+        assert result.parameter_name == "my_app"
+        assert result.version == 1
+
+        # Delete the parameter to clean up
+        config.delete_env_parameter(
+            ssm_client=ssm_client,
+            env_name=EnvNameEnum.dev,
+        )
+
+        with pytest.raises(ValueError):
+            config.delete_env_parameter(
+                ssm_client=ssm_client,
+                env_name=EnvNameEnum.dev,
+                include_s3=True,
+            )
+
+        config.delete_env_parameter(
+            ssm_client=ssm_client,
+            env_name=EnvNameEnum.dev,
+            s3_client=s3_client,
+            s3dir_config=s3dir_config,
+            include_s3=True,
+        )
 
 
 if __name__ == "__main__":
