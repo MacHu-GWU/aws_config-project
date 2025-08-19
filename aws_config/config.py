@@ -33,8 +33,8 @@ from .vendor.strutils import slugify
 from .constants import ALL, AwsTagKeyEnum
 from .utils import sha256_of_text
 from .s3 import S3Parameter
-from .env import validate_project_name, normalize_parameter_name, BaseEnv, T_BASE_ENV
-from .deployment import Deployment
+from .env import validate_project_name, normalize_parameter_name, T_BASE_ENV
+
 
 T_BASE_ENV_NAME_ENUM = T.TypeVar(
     "T_BASE_ENV_NAME_ENUM",
@@ -348,3 +348,6 @@ class BaseConfig(
                 parameter_name=parameter_name,
             )
             s3_parameter.delete_all(bsm=s3_client)
+
+
+T_BASE_CONFIG = T.TypeVar("T_BASE_CONFIG", bound=BaseConfig)
