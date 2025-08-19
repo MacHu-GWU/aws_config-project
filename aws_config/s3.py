@@ -222,6 +222,14 @@ class S3Parameter:
         s3_client: "S3Client",
         version: int | None = None,
     ) -> S3Path:
+        """
+        Delete a specific version of the configuration file from S3.
+
+        :param s3_client: S3Client for S3 operations
+        :param version: Version number (1, 2, 3, ...) or None for latest
+
+        :returns: S3Path of the deleted object
+        """
         s3path = self.get_s3path(version)
         s3path.delete(bsm=s3_client)
         return s3path
@@ -230,6 +238,14 @@ class S3Parameter:
         self,
         s3_client: "S3Client",
     ):
+        """
+        Delete all configuration files for this parameter from S3.
+
+        Removes the entire parameter directory and all versioned files.
+        This operation cannot be undone.
+
+        :param s3_client: S3Client for S3 operations
+        """
         self.s3dir_param.delete(bsm=s3_client)
 
     def delete_last(
@@ -238,6 +254,16 @@ class S3Parameter:
         keep_last_n: int = 10,
         purge_older_than_secs: int = 90 * 24 * 60 * 60,
     ):
+        """
+        Delete old configuration files based on retention policy.
+
+        Cleans up old versioned files while preserving recent ones. Files are
+        deleted only if they exceed both the count limit and age limit.
+
+        :param s3_client: S3Client for S3 operations
+        :param keep_last_n: Minimum number of files to keep (default: 10)
+        :param purge_older_than_secs: Delete files older than this (default: 90 days)
+        """
         s3path_list = list()
         for s3path in self.s3dir_param.iter_objects(bsm=s3_client):
             if s3path.basename.startswith(
@@ -247,5 +273,5 @@ class S3Parameter:
         now = datetime.now(tz=timezone.utc)
         expire = now - timedelta(seconds=purge_older_than_secs)
         for s3path in s3path_list[keep_last_n + 1 :]:
-            if s3path.last_modified < expire:
+            if s3path.last_modified_at < expire:
                 s3path.delete(bsm=s3_client)
