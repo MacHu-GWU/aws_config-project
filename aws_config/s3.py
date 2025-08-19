@@ -123,7 +123,7 @@ class S3Parameter:
 
     def get_s3path(
         self,
-        version: int | None,
+        version: int | None = None,
     ) -> S3Path:
         """
         Get the S3 path for a specific version of the parameter.
@@ -155,7 +155,7 @@ class S3Parameter:
         self,
         bsm: T.Union["BotoSesManager", "S3Client"],
         value: str,
-        version: int | None,
+        version: int | None = None,
         write_text_kwargs: dict[str, T.Any] | None = None,
     ) -> S3Path:
         """
@@ -191,7 +191,7 @@ class S3Parameter:
     def read(
         self,
         bsm: T.Union["BotoSesManager", "S3Client"],
-        version: int | None,
+        version: int | None = None`,
         read_text_kwargs: dict[str, T.Any] | None = None,
     ) -> str:
         """
