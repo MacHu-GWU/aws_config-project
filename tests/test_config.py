@@ -114,6 +114,8 @@ class TestConfig(BaseMockAwsTest):
         ssm_client = self.bsm.ssm_client
         s3_client = self.bsm.s3_client
         s3dir_config = self.s3dir_root.joinpath("config").to_dir()
+        
+        # First deployment - should create new parameter and S3 files
         result = config.deploy_env_parameter(
             ssm_client=ssm_client,
             s3_client=s3_client,
@@ -124,6 +126,7 @@ class TestConfig(BaseMockAwsTest):
         assert result.is_ssm_deployed is True
         assert result.is_s3_deployed is True
 
+        # Second deployment with same data - should skip (no changes)
         result = config.deploy_env_parameter(
             ssm_client=ssm_client,
             s3_client=s3_client,
@@ -134,6 +137,7 @@ class TestConfig(BaseMockAwsTest):
         assert result.is_ssm_deployed is False
         assert result.is_s3_deployed is False
 
+        # Deploy ALL environments - should create consolidated parameter
         result = config.deploy_env_parameter(
             ssm_client=ssm_client,
             s3_client=s3_client,
@@ -143,6 +147,7 @@ class TestConfig(BaseMockAwsTest):
         assert result.is_ssm_deployed is True
         assert result.is_s3_deployed is True
 
+        # Re-deploy ALL with same data - should skip (no changes)
         result = config.deploy_env_parameter(
             ssm_client=ssm_client,
             s3_client=s3_client,

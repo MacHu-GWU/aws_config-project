@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 
+"""
+Configuration management with inheritance, validation, and AWS deployment.
+
+Provides BaseConfig class for hierarchical configuration management with
+shared value inheritance, environment-specific parameter generation, and
+integrated deployment to AWS SSM Parameter Store and S3.
+"""
+
 try:
     import typing_extensions as T
 except ImportError:  # pragma: no cover
@@ -226,12 +234,22 @@ class BaseConfig(
         data_type: str | None = OPT,
     ) -> DeploymentResult:
         """
-        .. note::
+        Deploy environment-specific configuration to AWS SSM Parameter Store and S3.
 
-            If you want to deploy ``ALL`` and each environment defined in
-            ``EnvNameEnumClass``, since you may use different boto3 clients
-            and different s3dir_config for each environment, you should
-            call this method for each environment separately.
+        Deploys configuration for a specific environment or ALL environments to both
+        SSM Parameter Store (for runtime access) and S3 (for backup and versioning).
+        Only creates S3 files if the SSM parameter actually changes.
+
+        :param ssm_client: SSM client for parameter store operations
+        :param s3_client: S3 client for backup storage
+        :param s3dir_config: S3 directory for configuration backup
+        :param env_name: Environment name or ALL for consolidated config
+        :param tags: Additional AWS resource tags
+        :return: DeploymentResult with operation details
+
+        .. note::
+            For deploying multiple environments with different AWS clients,
+            call this method separately for each environment.
         """
         parameter_name, parameter_data = self._get_env_parameter_data(env_name)
         parameter_value = json.dumps(parameter_data, ensure_ascii=False)
@@ -299,17 +317,21 @@ class BaseConfig(
         s3dir_config: S3Path | None = True,
     ):
         """
+        Delete environment configuration from AWS SSM Parameter Store.
+
+        Removes the SSM parameter for the specified environment. Optionally
+        deletes S3 backup files if explicitly requested. S3 deletion is
+        disabled by default to preserve backup history.
+
+        :param ssm_client: SSM client for parameter store operations
+        :param env_name: Environment name or ALL for consolidated config
+        :param s3_client: S3 client (required if include_s3=True)
+        :param include_s3: Whether to also delete S3 backup files
+        :param s3dir_config: S3 directory (required if include_s3=True)
+
         .. note::
-
-            **Why we don't provide a method to delete specific parameter version?**
-
-            - Because SSM doesn't support deleting specific versions of parameters.
-            - If you delete SSM parameter, it will delete all versions
-
-            **Why we don't delete S3 by default?**
-
-            S3 serve as backup, only delete it if you really want to.
-
+            SSM parameter deletion removes all versions. S3 serves as backup
+            and is preserved by default unless explicitly deleted.
         """
         parameter_name, _ = self._get_env_parameter_data(env_name)
         delete_parameter(
