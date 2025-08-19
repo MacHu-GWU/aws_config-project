@@ -34,14 +34,14 @@ class TestS3Parameter(BaseMockAwsTest):
         # Test reading non-existent file - use a different path
         s3path_nonexistent = s3_param.get_s3path(999)  # Use a version that doesn't exist
         with pytest.raises(S3ObjectNotExist):
-            read_text(s3path=s3path_nonexistent, bsm=self.bsm)
+            read_text(s3path=s3path_nonexistent, bsm=self.s3_client)
         
         # Write content and test reading
         test_content = '{"test": "data"}'
         s3path = s3_param.get_s3path(None)
-        s3path.write_text(test_content, bsm=self.bsm)
+        s3path.write_text(test_content, bsm=self.s3_client)
         
-        result = read_text(s3path=s3path, bsm=self.bsm)
+        result = read_text(s3path=s3path, bsm=self.s3_client)
         assert result == test_content
 
     def test_s3_parameter_basic_operations(self):
@@ -86,15 +86,15 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Test reading from empty location
         with pytest.raises(S3ObjectNotExist):
-            s3_param.read(bsm=self.bsm, version=None)
+            s3_param.read(s3_client=self.s3_client, version=None)
         
         with pytest.raises(S3ObjectNotExist):
-            s3_param.read(bsm=self.bsm, version=1)
+            s3_param.read(s3_client=self.s3_client, version=1)
         
         # Write first version
         config_data_1 = '{"version": 1, "data": "test"}'
         s3path_result = s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data_1,
             version=1,
         )
@@ -103,12 +103,12 @@ class TestS3Parameter(BaseMockAwsTest):
         assert "999999-1.json" in s3path_result.key
         
         # Read back the versioned data
-        result = s3_param.read(bsm=self.bsm, version=1)
+        result = s3_param.read(s3_client=self.s3_client, version=1)
         assert result == config_data_1
         
         # Write latest pointer
         s3path_latest = s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data_1,
             version=None,
         )
@@ -116,33 +116,33 @@ class TestS3Parameter(BaseMockAwsTest):
         assert "000000-LATEST.json" in s3path_latest.key
         
         # Read latest
-        result_latest = s3_param.read(bsm=self.bsm, version=None)
+        result_latest = s3_param.read(s3_client=self.s3_client, version=None)
         assert result_latest == config_data_1
         
         # Write second version
         config_data_2 = '{"version": 2, "data": "updated"}'
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data_2,
             version=2,
         )
         
         # Update latest pointer
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data_2,
             version=None,
         )
         
         # Read specific versions
-        result_v1 = s3_param.read(bsm=self.bsm, version=1)
+        result_v1 = s3_param.read(s3_client=self.s3_client, version=1)
         assert result_v1 == config_data_1
         
-        result_v2 = s3_param.read(bsm=self.bsm, version=2)
+        result_v2 = s3_param.read(s3_client=self.s3_client, version=2)
         assert result_v2 == config_data_2
         
         # Read latest (should be version 2)
-        result_latest = s3_param.read(bsm=self.bsm, version=None)
+        result_latest = s3_param.read(s3_client=self.s3_client, version=None)
         assert result_latest == config_data_2
 
     def test_s3_parameter_with_write_text_kwargs(self):
@@ -163,7 +163,7 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Write with additional kwargs
         s3path_result = s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data,
             version=1,
             write_text_kwargs=write_kwargs,
@@ -172,7 +172,7 @@ class TestS3Parameter(BaseMockAwsTest):
         assert s3path_result is not None
         
         # Verify we can read it back
-        result = s3_param.read(bsm=self.bsm, version=1)
+        result = s3_param.read(s3_client=self.s3_client, version=1)
         assert result == config_data
 
     def test_s3_parameter_with_read_text_kwargs(self):
@@ -188,7 +188,7 @@ class TestS3Parameter(BaseMockAwsTest):
         # Write data first
         config_data = '{"test": "read_kwargs"}'
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data,
             version=1,
         )
@@ -196,7 +196,7 @@ class TestS3Parameter(BaseMockAwsTest):
         # Read with additional kwargs
         read_kwargs = {"encoding": "utf-8"}
         result = s3_param.read(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             version=1,
             read_text_kwargs=read_kwargs,
         )
@@ -214,7 +214,7 @@ class TestS3Parameter(BaseMockAwsTest):
         
         config_data = '{"test": "metadata", "key": "value"}'
         s3path_result = s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data,
             version=1,
         )
@@ -238,7 +238,7 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Test latest file metadata
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data,
             version=None,
         )
@@ -265,20 +265,20 @@ class TestS3Parameter(BaseMockAwsTest):
         for version in versions:
             config_data = f'{{"version": {version}}}'
             s3_param.write(
-                bsm=self.bsm,
+                s3_client=self.s3_client,
                 value=config_data,
                 version=version,
             )
         
         # Write latest
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value='{"version": "latest"}',
             version=None,
         )
         
         # List objects and verify ordering
-        objects = list(s3_param.s3dir_param.iter_objects(bsm=self.bsm))
+        objects = list(s3_param.s3dir_param.iter_objects(bsm=self.s3_client))
         filenames = [obj.basename for obj in objects]
         
         # Latest should come first (000000), then reverse version order (higher numbers = lower values)
@@ -305,15 +305,15 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Test reading non-existent config
         with pytest.raises(S3ObjectNotExist):
-            s3_param.read(bsm=self.bsm, version=None)
+            s3_param.read(s3_client=self.s3_client, version=None)
         
         with pytest.raises(S3ObjectNotExist):
-            s3_param.read(bsm=self.bsm, version=1)
+            s3_param.read(s3_client=self.s3_client, version=1)
         
         # Test reading with None kwargs (should work)
         # First write something
         s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value='{"test": "error_handling"}',
             version=1,
             write_text_kwargs=None,
@@ -321,7 +321,7 @@ class TestS3Parameter(BaseMockAwsTest):
         
         # Then read with None kwargs
         result = s3_param.read(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             version=1,
             read_text_kwargs=None,
         )
@@ -345,19 +345,19 @@ class TestS3Parameter(BaseMockAwsTest):
         # Test basic functionality
         # 1. Test non-existent read
         with pytest.raises(S3ObjectNotExist):
-            s3_param.read(bsm=self.bsm, version=999)
+            s3_param.read(s3_client=self.s3_client, version=999)
         
         # 2. Test write and read
         config_data = '{"test": "main", "version": 1}'
         s3path_result = s3_param.write(
-            bsm=self.bsm,
+            s3_client=self.s3_client,
             value=config_data,
             version=1,
         )
         assert s3path_result is not None
         
         # 3. Test read back
-        result = s3_param.read(bsm=self.bsm, version=1)
+        result = s3_param.read(s3_client=self.s3_client, version=1)
         assert result == config_data
         
         # 4. Test metadata

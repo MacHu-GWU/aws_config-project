@@ -13,6 +13,7 @@ from s3pathlib import S3Path
 from simple_aws_ssm_parameter_store.api import (
     ParameterType,
     ParameterTier,
+    Parameter,
     put_parameter_if_changed,
     delete_parameter,
 )
@@ -76,7 +77,7 @@ class Deployment:
         tags: dict[str, str] | None = OPT,
         policies: str | None = OPT,
         data_type: str | None = OPT,
-    ):
+    ) -> tuple[Parameter | None, Parameter | None]:
         """
         Deploy configuration to SSM Parameter Store.
 
