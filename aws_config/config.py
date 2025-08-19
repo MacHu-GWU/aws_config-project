@@ -4,21 +4,59 @@ try:
     import typing_extensions as T
 except ImportError:  # pragma: no cover
     import typing as T
+import copy
+import json
 import dataclasses
 from functools import cached_property
 
-import copy
+from func_args.api import OPT
+from s3pathlib import S3Path
+from simple_aws_ssm_parameter_store.api import (
+    ParameterType,
+    ParameterTier,
+    Parameter,
+    put_parameter_if_changed,
+    delete_parameter,
+)
 from which_env.api import validate_env_name, BaseEnvNameEnum
 from configcraft.api import SHARED, apply_inheritance, deep_merge
 from .vendor.strutils import slugify
 
+from .constants import ALL, AwsTagKeyEnum
+from .utils import sha256_of_text
+from .s3 import S3Parameter
 from .env import validate_project_name, normalize_parameter_name, BaseEnv, T_BASE_ENV
-
+from .deployment import Deployment
 
 T_BASE_ENV_NAME_ENUM = T.TypeVar(
     "T_BASE_ENV_NAME_ENUM",
     bound=BaseEnvNameEnum,
 )
+
+if T.TYPE_CHECKING:  # pragma: no cover
+    from mypy_boto3_ssm.client import SSMClient
+    from mypy_boto3_s3.client import S3Client
+
+
+@dataclasses.dataclass(frozen=True)
+class DeploymentResult:
+    param: Parameter | None
+    s3path_latest: S3Path | None
+    s3path_versioned: S3Path | None
+
+    @property
+    def is_ssm_deployed(self) -> bool:
+        """
+        Indicate if SSM parameter deployment operation happened.
+        """
+        return self.param is not None
+
+    @property
+    def is_s3_deployed(self) -> bool:
+        """
+        Indicate if S3 parameter deployment operation happened.
+        """
+        return self.s3path_latest is not None
 
 
 @dataclasses.dataclass
@@ -102,6 +140,11 @@ class BaseConfig(
 
         Pattern: "${project_name}" (no environment suffix)
         Example: "my_project"
+
+        .. note::
+
+            If you want to use "/path/to/parameter-name" style, you can override
+            this property in your environment class to return a different value.
         """
         return normalize_parameter_name(self.project_name_snake)
 
@@ -123,3 +166,163 @@ class BaseConfig(
         data = copy.deepcopy(self._merged_data[env_name])
         data["env_name"] = env_name
         return self.EnvClass.from_dict(data)
+
+    # --------------------------------------------------------------------------
+    # Deployment
+    # --------------------------------------------------------------------------
+    def _get_all_parameter_data(
+        self,
+    ) -> tuple[str, dict[str, T.Any]]:
+        parameter_name = self.parameter_name
+        parameter_data = {
+            "data": self.data,
+            "secret_data": self.secret_data,
+        }
+        return parameter_name, parameter_data
+
+    def _get_env_parameter_data(
+        self,
+        env_name: T.Union[str, "T_BASE_ENV_NAME_ENUM"],
+    ) -> tuple[str, dict[str, T.Any]]:
+        if env_name == ALL:
+            return self._get_all_parameter_data()
+        env_name = self.EnvNameEnumClass.ensure_str(env_name)
+        env = self.get_env(env_name)
+        parameter_name = env.parameter_name
+        parameter_data = {
+            "data": {
+                SHARED: {
+                    k: v
+                    for k, v in self.data.get(SHARED, {}).items()
+                    if k.startswith("*") or k.startswith(f"{env_name}.")
+                },
+                env_name: self.data[env_name],
+            },
+            "secret_data": {
+                SHARED: {
+                    k: v
+                    for k, v in self.secret_data.get(SHARED, {}).items()
+                    if k.startswith("*") or k.startswith(f"{env_name}.")
+                },
+                env_name: self.secret_data[env_name],
+            },
+        }
+        return parameter_name, parameter_data
+
+    def deploy_env_parameter(
+        self,
+        ssm_client: "SSMClient",
+        s3_client: "S3Client",
+        s3dir_config: S3Path,
+        env_name: T.Union[str, "T_BASE_ENV_NAME_ENUM"] = ALL,
+        description: str | None = OPT,
+        type: ParameterType | None = OPT,
+        tier: ParameterTier | None = OPT,
+        key_id: str | None = OPT,
+        overwrite: bool = False,
+        allowed_pattern: str | None = OPT,
+        tags: dict[str, str] | None = None,
+        policies: str | None = OPT,
+        data_type: str | None = OPT,
+    ) -> DeploymentResult:
+        """
+        .. note::
+
+            If you want to deploy ``ALL`` and each environment defined in
+            ``EnvNameEnumClass``, since you may use different boto3 clients
+            and different s3dir_config for each environment, you should
+            call this method for each environment separately.
+        """
+        parameter_name, parameter_data = self._get_env_parameter_data(env_name)
+        parameter_value = json.dumps(parameter_data, ensure_ascii=False)
+        config_sha256 = sha256_of_text(parameter_value)
+        if tags is None:
+            tags = {}
+        new_tags = {
+            AwsTagKeyEnum.project_name.value: self.project_name,
+            AwsTagKeyEnum.env_name.value: env_name,
+            AwsTagKeyEnum.config_sha256.value: config_sha256,
+        }
+        tags.update(new_tags)
+        tags.update(new_tags)
+        before_param, after_param = put_parameter_if_changed(
+            ssm_client=ssm_client,
+            name=parameter_name,
+            value=parameter_value,
+            description=description,
+            type=type,
+            tier=tier,
+            key_id=key_id,
+            overwrite=overwrite,
+            allowed_pattern=allowed_pattern,
+            tags=tags,
+            policies=policies,
+            data_type=data_type,
+        )
+        # parameter changed
+        if after_param is not None:
+            s3_parameter = S3Parameter(
+                s3dir_config=s3dir_config,
+                parameter_name=parameter_name,
+            )
+            s3path_latest = s3_parameter.write(
+                s3_client=s3_client,
+                value=parameter_value,
+                version=None,
+                write_text_kwargs={"tags": tags},
+            )
+            s3path_versioned = s3_parameter.write(
+                s3_client=s3_client,
+                value=parameter_value,
+                version=after_param.version,
+                write_text_kwargs={"tags": tags},
+            )
+            return DeploymentResult(
+                param=after_param,
+                s3path_latest=s3path_latest,
+                s3path_versioned=s3path_versioned,
+            )
+        # parameter not changed
+        else:
+            return DeploymentResult(
+                param=after_param,
+                s3path_latest=None,
+                s3path_versioned=None,
+            )
+
+    def delete_env_parameter(
+        self,
+        ssm_client: "SSMClient",
+        env_name: T.Union[str, "T_BASE_ENV_NAME_ENUM"] = ALL,
+        s3_client: "S3Client" = None,
+        include_s3: bool = False,
+        s3dir_config: S3Path | None = True,
+    ):
+        """
+        .. note::
+
+            **Why we don't provide a method to delete specific parameter version?**
+
+            - Because SSM doesn't support deleting specific versions of parameters.
+            - If you delete SSM parameter, it will delete all versions
+
+            **Why we don't delete S3 by default?**
+
+            S3 serve as backup, only delete it if you really want to.
+
+        """
+        parameter_name, _ = self._get_env_parameter_data(env_name)
+        delete_parameter(
+            ssm_client=ssm_client,
+            name=parameter_name,
+        )
+        if include_s3:
+            if (s3_client is None) or (s3dir_config is None):
+                raise ValueError(
+                    "s3_client and s3dir_config must be provided if include_s3 is True.",
+                )
+            s3_parameter = S3Parameter(
+                s3dir_config=s3dir_config,
+                parameter_name=parameter_name,
+            )
+            s3_parameter.delete_all(bsm=s3_client)
