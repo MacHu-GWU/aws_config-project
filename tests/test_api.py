@@ -25,6 +25,8 @@ def test():
     _ = api.T_BASE_ENV
     _ = api.BaseEnvNameEnum
     _ = api.T_BASE_ENV_NAME_ENUM
+    _ = api.DeploymentResult
+    _ = api.DeleteResult
     _ = api.BaseConfig
     _ = api.T_BASE_CONFIG
 

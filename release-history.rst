@@ -27,6 +27,8 @@ x.y.z (Backlog)
     - ``aws_config.api.camel2under``
     - ``aws_config.api.DATA``
     - ``aws_config.api.SECRET_DATA``
+    - ``aws_config.api.DeploymentResult``
+    - ``aws_config.api.DeleteResult``
     - ``aws_config.api.BaseConfig.load_from_file``
     - ``aws_config.api.BaseConfig.load_from_s3``
     - ``aws_config.api.BaseConfig.load_parameter``

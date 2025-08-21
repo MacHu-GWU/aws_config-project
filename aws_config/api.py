@@ -19,5 +19,7 @@ from .env import BaseEnv
 from .env import T_BASE_ENV
 from .config import BaseEnvNameEnum
 from .config import T_BASE_ENV_NAME_ENUM
+from .config import DeploymentResult
+from .config import DeleteResult
 from .config import BaseConfig
 from .config import T_BASE_CONFIG

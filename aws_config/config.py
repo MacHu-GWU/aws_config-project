@@ -63,6 +63,7 @@ class DeploymentResult:
 
     before_param: Parameter | None
     after_param: Parameter | None
+    s3dir_config: S3Path
     s3path_latest: S3Path | None
     s3path_versioned: S3Path | None
 
@@ -116,40 +117,54 @@ class DeploymentResult:
             return self.after_param.version
 
 
+@dataclasses.dataclass(frozen=True)
+class DeleteResult:
+    """
+    Result of a :meth:`BaseConfig.delete_env_parameter` operation.
+    to AWS SSM Parameter Store and S3.
+
+    :param parameter_name: Name of the deleted SSM parameter
+    :param s3dir_config: S3 directory where the configuration was stored
+    """
+
+    parameter_name: str
+    s3dir_config: S3Path | None
+
+
 @dataclasses.dataclass
 class BaseConfig(
     T.Generic[T_BASE_ENV, T_BASE_ENV_NAME_ENUM],
 ):
     """
     Hierarchical configuration management with inheritance, validation, and AWS deployment.
-    
+
     BaseConfig is the core of the ``aws_config`` library, providing a complete configuration
     lifecycle from local development to production deployment. It handles shared value
     inheritance, environment-specific parameter generation, validation, and integrated
     deployment to AWS SSM Parameter Store and S3.
-    
+
     **Design Philosophy**
-    
+
     The configuration system uses a hierarchical structure with shared value inheritance
     to minimize duplication while maintaining environment-specific customization. Two
     separate data structures handle sensitive and non-sensitive configuration:
-    
+
     - ``data``: Non-sensitive configuration (project settings, S3 URIs, etc.)
     - ``secret_data``: Sensitive configuration (passwords, API keys, account IDs)
-    
+
     This separation allows for different security handling, deployment strategies, and
     access controls while maintaining a unified configuration interface.
-    
+
     **Configuration Structure**
-    
+
     Configuration uses a DEFAULTS section for shared values with environment-specific
     overrides. Shared values use special prefixes to control inheritance:
-    
+
     - ``*`` prefix: Available to all environments
     - ``env.`` prefix: Available only to the specified environment
-    
+
     Example configuration structure::
-    
+
         # Non-sensitive data
         data = {
             "DEFAULTS": {
@@ -168,7 +183,7 @@ class BaseConfig(
                 "username": "bob",
             },
         }
-        
+
         # Sensitive data
         secret_data = {
             "dev": {
@@ -176,24 +191,24 @@ class BaseConfig(
                 "password": "alicepassword",
             },
             "prod": {
-                "aws_account_id": "111111111111", 
+                "aws_account_id": "111111111111",
                 "password": "bobpassword",
             },
         }
-    
+
     **Configuration Lifecycle**
-    
+
     The configuration follows a complete lifecycle from development to production:
-    
+
     1. **Development**: Start with two local JSON files
-       
+
        - ``config.json``: Non-sensitive configuration
        - ``secret-config.json``: Sensitive configuration (gitignored)
-       
+
        Load using :meth:`load_from_file`::
-       
+
            data, secret_data = BaseConfig.load_from_file(
-               "config.json", 
+               "config.json",
                "secret-config.json"
            )
            config = MyConfig(
@@ -203,11 +218,11 @@ class BaseConfig(
                EnvNameEnumClass=MyEnvEnum,
                version="1.0.0"
            )
-    
+
     2. **Deployment**: Admin deploys configuration to AWS infrastructure
-       
+
        Deploy to SSM Parameter Store (primary) and S3 (backup) using :meth:`deploy_env_parameter`::
-       
+
            # Deploy specific environment
            result = config.deploy_env_parameter(
                ssm_client=ssm_client,
@@ -216,24 +231,24 @@ class BaseConfig(
                env_name="prod",
                type=ParameterType.SECURE_STRING
            )
-           
-           # Deploy consolidated multi-environment configuration  
+
+           # Deploy consolidated multi-environment configuration
            result = config.deploy_env_parameter(
                ssm_client=ssm_client,
                s3_client=s3_client,
                s3dir_config=S3Path("s3://my-config-bucket/configs/"),
                # env_name defaults to ALL
            )
-       
+
        This creates:
-       
+
        - SSM Parameter: ``my_app-prod`` (environment-specific) or ``my_app`` (consolidated)
        - S3 Files: ``latest.json`` and ``v1.json`` (versioned backup)
-    
+
     3. **Runtime Access**: Applications load configuration from SSM
-       
+
        Use :meth:`load_parameter` in application code::
-       
+
            # Production application loads its specific environment
            data, secret_data = BaseConfig.load_parameter(
                ssm_client=ssm_client,
@@ -242,21 +257,21 @@ class BaseConfig(
            )
            config = MyConfig(data=data, secret_data=secret_data, ...)
            env = config.get_env("prod")
-           
+
            # Admin tools load consolidated configuration
            data, secret_data = BaseConfig.load_parameter(
                ssm_client=ssm_client,
                parameter_name="my_app",
-               with_decryption=True  
+               with_decryption=True
            )
            config = MyConfig(data=data, secret_data=secret_data, ...)
            dev_env = config.get_env("dev")
            prod_env = config.get_env("prod")
-    
+
     4. **Disaster Recovery**: Restore from S3 backup when SSM is unavailable
-       
+
        Use :meth:`load_from_s3` for disaster recovery::
-       
+
            # Load from S3 backup when SSM Parameter Store is unavailable
            data, secret_data = BaseConfig.load_from_s3(
                s3_client=s3_client,
@@ -264,82 +279,82 @@ class BaseConfig(
                parameter_name="my_app-prod"  # or None for auto-discovery
            )
            config = MyConfig(data=data, secret_data=secret_data, ...)
-    
+
     **Parameter Naming Conventions**
-    
+
     SSM Parameter names follow consistent patterns:
-    
+
     - Environment-specific: ``{project_name}-{env_name}`` (e.g., ``my_app-prod``)
     - Consolidated: ``{project_name}`` (e.g., ``my_app``)
-    
+
     S3 backup structure:
 
     - See :meth:`aws_config.s3.S3Parameter.get_s3path`
-    
+
     **Type Safety and Validation**
-    
+
     BaseConfig uses generic types to ensure type safety:
-    
+
     - ``T_BASE_ENV``: Environment dataclass type (e.g., ``MyEnv``)
     - ``T_BASE_ENV_NAME_ENUM``: Environment name enum type (e.g., ``MyEnvEnum``)
-    
+
     Environment instances are automatically validated using Pydantic/dataclass
     validation when calling :meth:`get_env`.
-    
+
     **Deployment Strategy**
-    
+
     The library supports both environment-specific and consolidated deployment patterns:
-    
+
     - **Environment-specific**: Each environment gets its own SSM parameter
       (``my_app-dev``, ``my_app-prod``) containing only that environment's configuration
     - **Consolidated**: Single SSM parameter (``my_app``) contains all environments
       for admin tools and cross-environment operations
-    
+
     **Security Features**
-    
+
     - Separation of sensitive and non-sensitive data
     - Automatic encryption using SSM SecureString parameters
     - S3 backup with optional encryption and access controls
     - Configurable AWS resource tagging for compliance and cost tracking
-    
+
     **Error Handling**
-    
+
     - Validates project and environment names against standards
     - Validates configuration structure and data types
     - Provides detailed error messages for configuration issues
     - Graceful handling of missing parameters and network issues
-    
+
     :param data: Non-sensitive configuration data with DEFAULTS and environment sections
     :param secret_data: Sensitive configuration data organized by environment
     :param EnvClass: Environment dataclass type for validation and type safety
     :param EnvNameEnumClass: Environment name enum class for validation
     :param version: Configuration version for tracking and deployment
-    
+
     Example:
         Complete configuration setup::
-        
+
             from enum import Enum
             from dataclasses import dataclass
             from pydantic import Field
-            
+
             class EnvNameEnum(BaseEnvNameEnum):
                 dev = "dev"
                 prod = "prod"
-            
-            @dataclass  
+
+            @dataclass
             class MyEnv(BaseEnv):
                 username: str = Field()
                 password: str = Field()
                 s3uri_data: str = Field()
-                
+
             class MyConfig(BaseConfig[MyEnv, EnvNameEnum]):
                 pass
-                
+
             # Load from local files during development
             data, secret_data = MyConfig.load_from_file(
                 "config.json", "secret-config.json"
             )
-            
+
             config = MyConfig(
                 data=data,
                 secret_data=secret_data,
@@ -347,23 +362,24 @@ class BaseConfig(
                 EnvNameEnumClass=EnvNameEnum,
                 version="1.0.0"
             )
-            
+
             # Get typed environment configuration
             prod_env = config.get_env("prod")
             print(f"Production S3 URI: {prod_env.s3uri_data}")
             print(f"Username: {prod_env.username}")
-    
+
     .. note::
         This is the core class of the aws_config library. All configuration
         management, validation, inheritance, and deployment functionality
         is built around this class.
-    
+
     .. seealso::
         - :class:`~aws_config.env.BaseEnv` for environment dataclass base
         - :meth:`deploy_env_parameter` for AWS deployment
         - :meth:`load_parameter` for runtime configuration loading
         - :meth:`load_from_s3` for disaster recovery scenarios
     """
+
     data: dict = dataclasses.field()
     secret_data: dict = dataclasses.field()
     EnvClass: T.Type["T_BASE_ENV"] = dataclasses.field()
@@ -520,7 +536,6 @@ class BaseConfig(
         type: ParameterType | None = OPT,
         tier: ParameterTier | None = OPT,
         key_id: str | None = OPT,
-        overwrite: bool = False,
         allowed_pattern: str | None = OPT,
         tags: dict[str, str] | None = None,
         policies: str | None = OPT,
@@ -564,7 +579,6 @@ class BaseConfig(
             type=type,
             tier=tier,
             key_id=key_id,
-            overwrite=overwrite,
             allowed_pattern=allowed_pattern,
             tags=tags,
             policies=policies,
@@ -591,6 +605,7 @@ class BaseConfig(
             return DeploymentResult(
                 before_param=before_param,
                 after_param=after_param,
+                s3dir_config=s3dir_config,
                 s3path_latest=s3path_latest,
                 s3path_versioned=s3path_versioned,
             )
@@ -599,6 +614,7 @@ class BaseConfig(
             return DeploymentResult(
                 before_param=before_param,
                 after_param=after_param,
+                s3dir_config=s3dir_config,
                 s3path_latest=None,
                 s3path_versioned=None,
             )
@@ -609,7 +625,7 @@ class BaseConfig(
         env_name: T.Union[str, "T_BASE_ENV_NAME_ENUM"] = ALL,
         s3_client: "S3Client" = None,
         include_s3: bool = False,
-        s3dir_config: S3Path | None = True,
+        s3dir_config: S3Path | None = None,
     ):
         """
         Delete environment configuration from AWS SSM Parameter Store.
@@ -643,6 +659,10 @@ class BaseConfig(
                 parameter_name=parameter_name,
             )
             s3_parameter.delete_all(s3_client=s3_client)
+        return DeleteResult(
+            parameter_name=parameter_name,
+            s3dir_config=s3dir_config,
+        )
 
     @staticmethod
     def load_from_file(
