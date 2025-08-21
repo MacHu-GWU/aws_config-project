@@ -64,7 +64,19 @@ class AwsTagKeyEnum(BetterStrEnum):
 
 
 ALL = "all"
+"""
+Special environment name to indicate all environment configs.
+"""
 
+DATA = "data"
+"""
+dictionary key for config data
+"""
+
+SECRET_DATA = "secret_data"
+"""
+dictionary key for config secret data
+"""
 
 class EnvVarNameEnum(BetterStrEnum):
     """

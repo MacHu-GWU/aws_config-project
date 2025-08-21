@@ -12,9 +12,11 @@ try:
     import typing_extensions as T
 except ImportError:  # pragma: no cover
     import typing as T
+import os
 import copy
 import json
 import dataclasses
+from pathlib import Path
 from functools import cached_property
 
 from func_args.api import OPT
@@ -23,27 +25,28 @@ from simple_aws_ssm_parameter_store.api import (
     ParameterType,
     ParameterTier,
     Parameter,
+    get_parameter,
     put_parameter_if_changed,
     delete_parameter,
 )
 from which_env.api import validate_env_name, BaseEnvNameEnum
 from configcraft.api import DEFAULTS, apply_inheritance, deep_merge
 from .vendor.strutils import slugify
+from .vendor.jsonutils import json_loads
 
-from .constants import ALL, AwsTagKeyEnum
+from .constants import ALL, DATA, SECRET_DATA, AwsTagKeyEnum
 from .utils import sha256_of_text
 from .s3 import S3Parameter
 from .env import validate_project_name, normalize_parameter_name, T_BASE_ENV
 
+if T.TYPE_CHECKING:  # pragma: no cover
+    from mypy_boto3_ssm.client import SSMClient
+    from mypy_boto3_s3.client import S3Client
 
 T_BASE_ENV_NAME_ENUM = T.TypeVar(
     "T_BASE_ENV_NAME_ENUM",
     bound=BaseEnvNameEnum,
 )
-
-if T.TYPE_CHECKING:  # pragma: no cover
-    from mypy_boto3_ssm.client import SSMClient
-    from mypy_boto3_s3.client import S3Client
 
 
 @dataclasses.dataclass(frozen=True)
@@ -229,8 +232,8 @@ class BaseConfig(
     ) -> tuple[str, dict[str, T.Any]]:
         parameter_name = self.parameter_name
         parameter_data = {
-            "data": self.data,
-            "secret_data": self.secret_data,
+            DATA: self.data,
+            SECRET_DATA: self.secret_data,
         }
         return parameter_name, parameter_data
 
@@ -244,7 +247,7 @@ class BaseConfig(
         env = self.get_env(env_name)
         parameter_name = env.parameter_name
         parameter_data = {
-            "data": {
+            DATA: {
                 DEFAULTS: {
                     k: v
                     for k, v in self.data.get(DEFAULTS, {}).items()
@@ -252,7 +255,7 @@ class BaseConfig(
                 },
                 env_name: self.data[env_name],
             },
-            "secret_data": {
+            SECRET_DATA: {
                 DEFAULTS: {
                     k: v
                     for k, v in self.secret_data.get(DEFAULTS, {}).items()
@@ -396,6 +399,83 @@ class BaseConfig(
                 parameter_name=parameter_name,
             )
             s3_parameter.delete_all(s3_client=s3_client)
+
+    @staticmethod
+    def load_from_file(
+        path_config_json: str | os.PathLike,
+        path_secret_config_json: str | os.PathLike,
+    ) -> tuple[dict[str, T.Any], dict[str, T.Any]]:
+        """
+        Load configuration data from local JSON files.
+
+        :param path_config_json: Path to the main configuration JSON file
+        :param path_secret_config_json: Path to the sensitive configuration JSON file
+
+        :return: Tuple containing non-sensitive and sensitive configuration data
+        """
+        data = json_loads(Path(path_config_json).read_text(encoding="utf-8"))
+        secret_data = json_loads(
+            Path(path_secret_config_json).read_text(encoding="utf-8")
+        )
+        return data, secret_data
+
+    @staticmethod
+    def load_from_s3(
+        s3_client: "S3Client",
+        s3dir_config: S3Path,
+        parameter_name: str | None = None,
+        read_text_kwargs: dict[str, T.Any] | None = None,
+    ) -> tuple[dict[str, T.Any], dict[str, T.Any]]:
+        """
+        Load configuration data from local JSON files.
+
+        :param s3_client: S3 client for S3 operations
+        :param s3dir_config: S3 directory path where configuration files are stored
+        :param parameter_name: Optional specific parameter name to load
+        :param read_text_kwargs: Additional keyword arguments for S3 read_text
+
+        :return: Tuple containing non-sensitive and sensitive configuration data
+        """
+        s3_parameter = S3Parameter(
+            s3dir_config=s3dir_config,
+            parameter_name=parameter_name,
+        )
+        text = s3_parameter.read(
+            s3_client=s3_client,
+            version=None,
+            read_text_kwargs=read_text_kwargs,
+        )
+        parameter_data = json_loads(text)
+        data = parameter_data[DATA]
+        secret_data = parameter_data[SECRET_DATA]
+        return data, secret_data
+
+    @staticmethod
+    def load_parameter(
+        ssm_client: "SSMClient",
+        parameter_name: str,
+        with_decryption: bool = False,
+    ) -> tuple[dict[str, T.Any], dict[str, T.Any]]:
+        """
+        Load configuration data from an SSM Parameter Store parameter.
+
+        :after_param ssm_client: SSM client for parameter store operations
+        :after_param parameter_name: Name of the SSM parameter to load
+        :after_param with_decryption: Whether to decrypt secure string parameters
+
+        :return: Tuple containing non-sensitive and sensitive configuration data
+        """
+        parameter = get_parameter(
+            ssm_client=ssm_client,
+            name=parameter_name,
+            with_decryption=with_decryption,
+        )
+        if parameter is None:
+            raise ValueError(f"SSM Parameter {parameter_name!r} doesn't exist!")
+        parameter_data = json_loads(parameter.value)
+        data = parameter_data[DATA]
+        secret_data = parameter_data[SECRET_DATA]
+        return data, secret_data
 
 
 T_BASE_CONFIG = T.TypeVar("T_BASE_CONFIG", bound=BaseConfig)

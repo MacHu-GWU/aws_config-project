@@ -5,10 +5,17 @@ from aws_config import api
 
 def test():
     _ = api
+    _ = api.json_loads
+    _ = api.slugify
+    _ = api.under2camel
+    _ = api.camel2under
     _ = api.ZFILL
     _ = api.LATEST_VERSION
     _ = api.S3MetadataKeyEnum
     _ = api.AwsTagKeyEnum
+    _ = api.ALL
+    _ = api.DATA
+    _ = api.SECRET_DATA
     _ = api.ALL
     _ = api.EnvVarNameEnum
     _ = api.S3Parameter
