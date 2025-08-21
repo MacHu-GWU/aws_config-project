@@ -50,7 +50,52 @@ Welcome to ``aws_config`` Documentation
 .. image:: https://aws-config.readthedocs.io/en/latest/_static/aws_config-logo.png
     :target: https://aws-config.readthedocs.io/en/latest/
 
-Documentation for ``aws_config``.
+``aws_config`` is a well-defined configuration management framework for multi-environment applications that uses AWS services as the configuration backend. This library is built from years of Amazon best practices for managing application configurations at scale.
+
+The framework provides hierarchical configuration management with inheritance, automatic parameter generation for different environments (dev, test, prod), and seamless integration with AWS SSM Parameter Store and S3. It eliminates configuration drift between environments while maintaining security through proper secret management.
+
+Key benefits include type-safe configuration classes, environment-specific parameter validation, automated deployment to AWS backend services, and built-in configuration inheritance that reduces duplication across environments.
+
+.. code-block:: python
+
+    from aws_config import BaseConfig, BaseEnv, BaseEnvNameEnum
+    from pydantic import Field
+
+    class EnvNameEnum(BaseEnvNameEnum):
+        dev = "dev"
+        prod = "prod"
+
+    class Env(BaseEnv):
+        username: str = Field()
+        password: str = Field()
+
+    class Config(BaseConfig[Env, EnvNameEnum]):
+        pass
+
+    config = Config(
+        data={
+            "_defaults": {
+                "*.project_name": "my_app",
+            }
+            "dev": {
+                "username": "alice"
+            },
+            "prod": {
+                "username": "bob"
+            }
+        },
+        secret_data={
+            "dev": {
+                "username": "alice-pwd"
+            },
+            "prod": {
+                "username": "bob-pwd"
+            }
+        },
+        EnvClass=Env,
+        EnvNameEnumClass=EnvNameEnum,
+    )
+    env = config.get_env(EnvNameEnum.dev)
 
 
 .. _install:
