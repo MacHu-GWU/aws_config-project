@@ -16,7 +16,14 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
-0.1.3 (2025-08-20)
+0.1.4 (2025-08-21)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Miscellaneous**
+
+- Bump ``simple-aws-ssm-parameter-store`` to 0.2.3 to fix a bug in the ``put_parameter_if_changed`` method.
+
+
+0.1.3 (2025-08-21)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Features and Improvements**
 
