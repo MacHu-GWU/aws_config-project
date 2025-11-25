@@ -86,13 +86,13 @@ class BaseEnv(BaseModel):
     s3uri_data: str | None = Field(default=None)
     s3uri_artifacts: str | None = Field(default=None)
 
-    @field_validator("project_name", mode="after")
+    @field_validator("project_name", mode="before")
     @classmethod
     def _check_project_name(cls, value: str) -> str:
         validate_project_name(value)
         return value
 
-    @field_validator("env_name", mode="after")
+    @field_validator("env_name", mode="before")
     @classmethod
     def _check_env_name(cls, value: str) -> str:
         validate_env_name(value)
