@@ -16,6 +16,13 @@ x.y.z (Backlog)
 **Miscellaneous**
 
 
+0.1.5 (2025-11-25)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Bugfixes**
+
+- Change field validator mode from 'after' to 'before' in ``BaseEnv`` to ensure validation occurs prior to field assignment.
+
+
 0.1.4 (2025-08-21)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 **Miscellaneous**
